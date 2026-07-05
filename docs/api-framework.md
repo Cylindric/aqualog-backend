@@ -22,6 +22,24 @@ Runtime values can override baked defaults using container environment arguments
 
 `docker run -e AQUALOG_APP_ENV=test -e AQUALOG_LOG_LEVEL=DEBUG <image>`
 
+## Compose Bootstrap
+
+- A repository-root compose file is provided at `docker-compose.yml`.
+- The compose API service builds from the local Dockerfile and reuses its startup contract.
+- Host port mapping defaults to `8000:8000` and can be overridden with `AQUALOG_HOST_PORT`.
+- Compose defaults prioritize local workflow startup values:
+  - `AQUALOG_APP_ENV=dev`
+  - `AQUALOG_API_VERSION=v1`
+  - `AQUALOG_LOG_LEVEL=INFO`
+
+Example startup with defaults:
+
+`docker compose up --build`
+
+Example with overrides:
+
+`AQUALOG_APP_ENV=test AQUALOG_HOST_PORT=8080 docker compose up --build`
+
 ## Operational Endpoints
 
 - `GET /api/v1/live`

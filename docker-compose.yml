@@ -1,0 +1,11 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${AQUALOG_HOST_PORT:-8000}:8000"
+    environment:
+      AQUALOG_APP_ENV: "${AQUALOG_APP_ENV:-dev}"
+      AQUALOG_API_VERSION: "${AQUALOG_API_VERSION:-v1}"
+      AQUALOG_LOG_LEVEL: "${AQUALOG_LOG_LEVEL:-INFO}"

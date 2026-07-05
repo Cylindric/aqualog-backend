@@ -22,6 +22,16 @@ tasks:
       - cmd: docker tag aqualog-backend-api:latest cylindric/aqualog:api-latest
       - cmd: docker push cylindric/aqualog:api-latest
 
+  compose-up:
+    desc: Build and start the API service with docker-compose
+    cmds:
+      - cmd: docker compose up --build -d
+
+  compose-down:
+    desc: Stop docker-compose services for this project
+    cmds:
+      - cmd: docker compose down
+
   server:
     desc: Start the API server locally
     env:
