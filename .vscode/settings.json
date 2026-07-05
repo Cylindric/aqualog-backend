@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "openspec": true,
+        "uv": true,
+        ".venv/bin/pytest": true,
+        "task": true
+    }
+}
