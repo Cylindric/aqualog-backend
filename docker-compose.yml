@@ -1,3 +1,6 @@
+include:
+  - docker-compose-authentik.yml
+
 services:
   api:
     build:
@@ -9,3 +12,8 @@ services:
       AQUALOG_APP_ENV: "${AQUALOG_APP_ENV:-dev}"
       AQUALOG_API_VERSION: "${AQUALOG_API_VERSION:-v1}"
       AQUALOG_LOG_LEVEL: "${AQUALOG_LOG_LEVEL:-INFO}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

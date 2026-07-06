@@ -1,3 +1,12 @@
-__pycache__
+# Python Artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv
 .coverage
 coverage.xml
+
+# Application Test Data
+.data
+.env

@@ -24,7 +24,19 @@ tasks:
 
   compose-up:
     desc: Build and start the API service with docker-compose
+    interactive: true
+    silent: true
     cmds:
+      - cmd: |
+          if [ ! -f .env ]; then
+            echo "Creating .env file with default values..."
+            echo "PG_PASS=$(openssl rand -base64 36 | tr -d '\n')" >> .env
+            echo "AUTHENTIK_SECRET_KEY=$(openssl rand -base64 60 | tr -d '\n')" >> .env
+            echo "AUTHENTIK_ERROR_REPORTING__ENABLED=true" >> .env
+          fi
+      - cmd: mkdir -p .data/authentik/data
+      - cmd: mkdir -p .data/authentik/certs
+      - cmd: mkdir -p .data/authentik/custom-templates
       - cmd: docker compose up --build -d
 
   compose-down:
