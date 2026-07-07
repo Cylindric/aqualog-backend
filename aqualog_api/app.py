@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
@@ -100,6 +100,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request_id=request_id,
             status_code=500,
             code="internal_error",
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Handle HTTP exceptions including authentication failures (401)."""
+        request_id = getattr(request.state, "request_id", "unknown")
+        logger.warning(
+            f"HTTP {exc.status_code} error: {exc.detail}",
+            extra={"request_id": request_id},
+        )
+        return error_response(
+            message=exc.detail or "Request failed",
+            request_id=request_id,
+            status_code=exc.status_code,
+            code="authentication_error" if exc.status_code == 401 else "http_error",
         )
 
     return app

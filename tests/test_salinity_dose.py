@@ -1,18 +1,40 @@
+from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 from aqualog_api.app import create_app
 from aqualog_api.config import Settings
 
 
-def test_salinity_dose_returns_expected_quantity_in_success_envelope():
-    app = create_app(Settings(app_env="test"))
+@pytest.fixture
+def auth_settings():
+    """Create Settings with OAuth2 configuration for testing."""
+    return Settings(
+        app_env="test",
+        oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+        oauth_audience="test-client-id",
+    )
 
-    with TestClient(app) as client:
-        response = client.get(
-            "/api/v1/calculate/dose/salinity",
-            params={"volume": 100.0, "current": 30.0, "target": 35.0},
-            headers={"x-request-id": "req-salinity-1"},
-        )
+
+def test_salinity_dose_returns_expected_quantity_in_success_envelope(
+    create_valid_token, auth_settings, mock_jwks, mock_oidc_config
+):
+    app = create_app(auth_settings)
+    token = create_valid_token(sub="test-user", aud="test-client-id")
+
+    with patch("aqualog_api.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/calculate/dose/salinity",
+                params={"volume": 100.0, "current": 30.0, "target": 35.0},
+                headers={
+                    "x-request-id": "req-salinity-1",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
 
     body = response.json()
     assert response.status_code == 200
@@ -24,15 +46,24 @@ def test_salinity_dose_returns_expected_quantity_in_success_envelope():
     assert body["data"]["quantity"] == 550.0
 
 
-def test_salinity_dose_allows_negative_quantity_when_target_below_current():
-    app = create_app(Settings(app_env="test"))
+def test_salinity_dose_allows_negative_quantity_when_target_below_current(
+    create_valid_token, auth_settings, mock_jwks, mock_oidc_config
+):
+    app = create_app(auth_settings)
+    token = create_valid_token(sub="test-user", aud="test-client-id")
 
-    with TestClient(app) as client:
-        response = client.get(
-            "/api/v1/calculate/dose/salinity",
-            params={"volume": 10.0, "current": 35.0, "target": 30.0},
-            headers={"x-request-id": "req-salinity-2"},
-        )
+    with patch("aqualog_api.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/calculate/dose/salinity",
+                params={"volume": 10.0, "current": 35.0, "target": 30.0},
+                headers={
+                    "x-request-id": "req-salinity-2",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
 
     body = response.json()
     assert response.status_code == 200
@@ -41,20 +72,32 @@ def test_salinity_dose_allows_negative_quantity_when_target_below_current():
     assert body["data"]["quantity"] == -55.0
 
 
-def test_salinity_dose_missing_or_invalid_params_return_standard_error_envelope():
-    app = create_app(Settings(app_env="test"))
+def test_salinity_dose_missing_or_invalid_params_return_standard_error_envelope(
+    create_valid_token, auth_settings, mock_jwks, mock_oidc_config
+):
+    app = create_app(auth_settings)
+    token = create_valid_token(sub="test-user", aud="test-client-id")
 
-    with TestClient(app) as client:
-        missing_response = client.get(
-            "/api/v1/calculate/dose/salinity",
-            params={"volume": 100.0, "current": 30.0},
-            headers={"x-request-id": "req-salinity-missing"},
-        )
-        invalid_response = client.get(
-            "/api/v1/calculate/dose/salinity",
-            params={"volume": "bad", "current": 30.0, "target": 35.0},
-            headers={"x-request-id": "req-salinity-invalid"},
-        )
+    with patch("aqualog_api.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        
+        with TestClient(app) as client:
+            missing_response = client.get(
+                "/api/v1/calculate/dose/salinity",
+                params={"volume": 100.0, "current": 30.0},
+                headers={
+                    "x-request-id": "req-salinity-missing",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            invalid_response = client.get(
+                "/api/v1/calculate/dose/salinity",
+                params={"volume": "bad", "current": 30.0, "target": 35.0},
+                headers={
+                    "x-request-id": "req-salinity-invalid",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
 
     missing_body = missing_response.json()
     invalid_body = invalid_response.json()
@@ -68,3 +111,45 @@ def test_salinity_dose_missing_or_invalid_params_return_standard_error_envelope(
     assert invalid_body["success"] is False
     assert invalid_body["error"]["code"] == "validation_error"
     assert invalid_body["request_id"] == "req-salinity-invalid"
+
+
+def test_salinity_dose_requires_authentication(auth_settings):
+    """Test that salinity dose endpoint returns 403 without authentication (HTTPBearer missing)."""
+    app = create_app(auth_settings)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/calculate/dose/salinity",
+            params={"volume": 100.0, "current": 30.0, "target": 35.0},
+            headers={"x-request-id": "req-salinity-no-auth"},
+        )
+
+    body = response.json()
+    # HTTPBearer returns 403 when no credentials provided
+    assert response.status_code == 403
+    assert body["success"] is False
+    assert body["error"]["code"] == "http_error"
+
+
+def test_salinity_dose_rejects_invalid_token(auth_settings, mock_jwks):
+    """Test that salinity dose endpoint rejects invalid tokens."""
+    app = create_app(auth_settings)
+
+    with patch("aqualog_api.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/calculate/dose/salinity",
+                params={"volume": 100.0, "current": 30.0, "target": 35.0},
+                headers={
+                    "x-request-id": "req-salinity-invalid-token",
+                    "Authorization": "Bearer invalid.token.here",
+                },
+            )
+
+    body = response.json()
+    assert response.status_code == 401
+    assert body["success"] is False
+    assert body["error"]["code"] == "authentication_error"
+

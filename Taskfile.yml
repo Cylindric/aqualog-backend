@@ -6,40 +6,35 @@ tasks:
     cmds:
       - task --list
 
-  install:
-    desc: Install project dependencies
+  init:
+    desc: Initialize the environment
+    silent: true
     cmds:
-      - uv pip install -r requirements.txt
+      - cmd: uv sync --dev
+      - cmd: |
+          if [ ! -f .env ]; then
+            echo "Creating .env file with default values..."
+            cp .env.example .env
+            echo "PG_PASS=$(openssl rand -base64 36 | tr -d '\n')" >> .env
+            echo "AUTHENTIK_SECRET_KEY=$(openssl rand -base64 60 | tr -d '\n')" >> .env
+          fi
+      - cmd: mkdir -p .data/authentik/data
+      - cmd: mkdir -p .data/authentik/certs
+      - cmd: mkdir -p .data/authentik/custom-templates
 
   build:
     desc: Build the project
     cmds:
       - cmd: docker build -t aqualog-backend-api:latest .
 
-  publish:
-    desc: Publish the project to Docker Hub
-    cmds:
-      - cmd: docker tag aqualog-backend-api:latest cylindric/aqualog:api-latest
-      - cmd: docker push cylindric/aqualog:api-latest
-
-  compose-up:
+  up:
     desc: Build and start the API service with docker-compose
     interactive: true
     silent: true
     cmds:
-      - cmd: |
-          if [ ! -f .env ]; then
-            echo "Creating .env file with default values..."
-            echo "PG_PASS=$(openssl rand -base64 36 | tr -d '\n')" >> .env
-            echo "AUTHENTIK_SECRET_KEY=$(openssl rand -base64 60 | tr -d '\n')" >> .env
-            echo "AUTHENTIK_ERROR_REPORTING__ENABLED=true" >> .env
-          fi
-      - cmd: mkdir -p .data/authentik/data
-      - cmd: mkdir -p .data/authentik/certs
-      - cmd: mkdir -p .data/authentik/custom-templates
       - cmd: docker compose up --build -d
 
-  compose-down:
+  down:
     desc: Stop docker-compose services for this project
     cmds:
       - cmd: docker compose down
@@ -68,3 +63,18 @@ tasks:
     cmds:
       - mkdir -p artifacts/coverage
       - .venv/bin/pytest -q --cov=aqualog_api --cov-report=term-missing --cov-report=html:artifacts/coverage --cov-report=xml --html=artifacts/tests/index.html
+
+  clean:
+    desc: Clean up build artifacts and temporary files
+    cmds:
+      - cmd: docker compose down --volumes --remove-orphans
+      - cmd: rm -rf .data
+      - cmd: rm -rf artifacts
+    
+  clean-all:
+    desc: Clean up all build artifacts, temporary files, and Docker images
+    cmds:
+      - task: clean
+      - cmd: docker rmi aqualog-backend-api:latest --force
+      - cmd: rm -rf .env
+      - cmd: rm -rf .venv

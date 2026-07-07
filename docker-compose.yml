@@ -12,6 +12,11 @@ services:
       AQUALOG_APP_ENV: "${AQUALOG_APP_ENV:-dev}"
       AQUALOG_API_VERSION: "${AQUALOG_API_VERSION:-v1}"
       AQUALOG_LOG_LEVEL: "${AQUALOG_LOG_LEVEL:-INFO}"
+      AQUALOG_OAUTH_ISSUER_URL: "${AQUALOG_OAUTH_ISSUER_URL:-https://authentikserver:9443/application/o/aqualog/}"
+      AQUALOG_OAUTH_AUDIENCE: "${AQUALOG_OAUTH_AUDIENCE:-aqualog-api}"
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+    volumes:
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
