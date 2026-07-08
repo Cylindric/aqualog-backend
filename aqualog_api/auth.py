@@ -99,8 +99,10 @@ async def validate_token(
             jwks,
         )
         
-        # Validate issuer
-        if claims.get("iss") != issuer:
+        # Validate issuer. Normalize trailing slash because providers may emit
+        # issuer URLs with or without a final '/'.
+        token_issuer = str(claims.get("iss", "")).rstrip("/")
+        if token_issuer != issuer:
             logger.warning(f"Invalid issuer in token: {claims.get('iss')}")
             raise ValueError(f"Invalid issuer")
         

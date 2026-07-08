@@ -43,10 +43,29 @@ tasks:
     desc: Start the API server locally
     env:
       AQUALOG_APP_ENV: dev
+      AQUALOG_OAUTH_ISSUER_URL: "https://authentik.home.cylindric.net/application/o/aqualog-api/"
+      AQUALOG_OAUTH_AUDIENCE: "6MyFdAlI2pNl9ZoMGPEhuWBa2So7wyFfGMr85lee"
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+
     cmds:
-      - task: test
-      - task: coverage
+      # - task: test
+      # - task: coverage
       - cmd: uvicorn aqualog_api.app:create_app --factory --host 0.0.0.0 --port 8000
+
+  auth-check:
+    desc: Validate Authentik token issuance and API authentication without inline secrets
+    env:
+      ISSUER: "{{.AQUALOG_OAUTH_ISSUER_URL}}"
+      TOKEN_ENDPOINT: "https://authentik.home.cylindric.net/application/o/token/"
+      API_URL: "http://localhost:8000/api/v1/calculate/dose/salinity?volume=100&current=30&target=35"
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+    dir: ./useful_tools
+    cmds:
+      - cmd: ./test.sh
 
   test:
     desc: Run the test suite with coverage summary and HTML test report

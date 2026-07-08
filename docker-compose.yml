@@ -1,6 +1,3 @@
-include:
-  - docker-compose-authentik.yml
-
 services:
   api:
     build:
@@ -12,7 +9,7 @@ services:
       AQUALOG_APP_ENV: "${AQUALOG_APP_ENV:-dev}"
       AQUALOG_API_VERSION: "${AQUALOG_API_VERSION:-v1}"
       AQUALOG_LOG_LEVEL: "${AQUALOG_LOG_LEVEL:-INFO}"
-      AQUALOG_OAUTH_ISSUER_URL: "${AQUALOG_OAUTH_ISSUER_URL:-https://authentikserver:9443/application/o/aqualog/}"
+      AQUALOG_OAUTH_ISSUER_URL: "${AQUALOG_OAUTH_ISSUER_URL:-https://authentik.home.cylindric.net:9443/application/o/aqualog-api/}"
       AQUALOG_OAUTH_AUDIENCE: "${AQUALOG_OAUTH_AUDIENCE:-aqualog-api}"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
     volumes:

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# Copy this file to your shell session as exports before running ./test.sh
+# Example:
+#   source ./test.sh.example
+#   ./test.sh
+
+export USERNAME="your-authentik-username"
+export PASSWORD="your-authentik-password"
+export CLIENT_ID="your-oauth-client-id"
+export CLIENT_SECRET="your-oauth-client-secret"
+
+# Optional overrides
+export ISSUER="https://authentik.home.cylindric.net/application/o/aqualog-api/"
+export TOKEN_ENDPOINT="https://authentik.home.cylindric.net/application/o/token/"
+export API_URL="http://localhost:8000/api/v1/calculate/dose/salinity?volume=100&current=30&target=35"
