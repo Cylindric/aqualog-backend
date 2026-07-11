@@ -4,18 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${AQUALOG_HOST_PORT:-8000}:8000"
+      - "${AQUALOG_HOST_PORT:-8001}:8000"
     environment:
       AQUALOG_APP_ENV: "${AQUALOG_APP_ENV:-dev}"
       AQUALOG_API_VERSION: "${AQUALOG_API_VERSION:-v1}"
       AQUALOG_LOG_LEVEL: "${AQUALOG_LOG_LEVEL:-INFO}"
-      AQUALOG_OAUTH_ISSUER_URL: "${AQUALOG_OAUTH_ISSUER_URL:-https://authentik.home.cylindric.net:9443/application/o/aqualog-api/}"
+      AQUALOG_OAUTH_ISSUER_URL: "${AQUALOG_OAUTH_ISSUER_URL:-https://auth.aqualog.home.cylindric.net/application/o/aqualog-api/}"
       AQUALOG_OAUTH_AUDIENCE: "${AQUALOG_OAUTH_AUDIENCE:-aqualog-api}"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
     volumes:
       - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5

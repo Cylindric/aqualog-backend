@@ -10,3 +10,4 @@ coverage.xml
 # Application Test Data
 .data
 .env
+aqualog_api.egg-info

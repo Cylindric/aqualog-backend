@@ -8,8 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements-runtime.txt ./
-RUN pip install --no-cache-dir -r requirements-runtime.txt
+COPY pyproject.toml ./
+RUN pip install .
 
 COPY aqualog_api ./aqualog_api
 

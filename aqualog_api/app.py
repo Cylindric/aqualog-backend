@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
 
@@ -41,6 +42,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.readiness = ReadinessState(is_ready=False)
     app.state.settings = settings
     app.state.logger = logger
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     app.add_middleware(RequestLoggingMiddleware, logger=logger)
 

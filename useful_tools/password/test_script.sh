@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # 0) Required inputs
-ISSUER="${ISSUER:-https://authentik.home.cylindric.net/application/o/aqualog-api/}"
-TOKEN_ENDPOINT="${TOKEN_ENDPOINT:-https://authentik.home.cylindric.net/application/o/token/}"
+ISSUER="${ISSUER:-https://auth.aqualog.home.cylindric.net/application/o/aqualog-api/}"
+TOKEN_ENDPOINT="${TOKEN_ENDPOINT:-https://auth.aqualog.home.cylindric.net/application/o/token/}"
 API_URL="${API_URL:-http://localhost:8000/api/v1/calculate/dose/salinity?volume=100&current=30&target=35}"
 
 set -euo pipefail
@@ -70,3 +70,5 @@ curl -sk "$JWKS_URI" | jq --arg kid "$KID" '
 
 echo "== 4) Call API =="
 curl -s -H "Authorization: Bearer $JWT" "$API_URL" | jq .
+
+echo $JWT

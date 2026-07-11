@@ -32,7 +32,7 @@ The API uses OAuth2/OIDC authentication via Authentik. Protected endpoints requi
 
 Set the following environment variables to enable OAuth2:
 
-- **AQUALOG_OAUTH_ISSUER_URL**: OIDC issuer URL (default: `https://authentikserver:9443/application/o/aqualog/`)
+- **AQUALOG_OAUTH_ISSUER_URL**: OIDC issuer URL (default: `https://auth.aqualog.home.cylindric.net/application/o/aqualog/`)
 - **AQUALOG_OAUTH_AUDIENCE**: OAuth2 audience claim (default: `aqualog-api`)
 
 ### Getting Tokens for Testing
@@ -42,7 +42,7 @@ Set the following environment variables to enable OAuth2:
 3. Use the client credentials or resource owner password flow to get a token:
 
 ```bash
-curl -X POST https://authentikserver:9443/application/o/token/ \
+curl -X POST https://auth.aqualog.home.cylindric.net/application/o/token/ \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=password&username=<user>&password=<pass>&client_id=<client_id>&client_secret=<secret>&audience=aqualog-api"
 ```

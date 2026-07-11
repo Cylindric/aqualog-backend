@@ -25,14 +25,14 @@ tasks:
   build:
     desc: Build the project
     cmds:
-      - cmd: docker build -t aqualog-backend-api:latest .
+      - cmd: docker build -t aqualog-backend:latest .
 
   up:
     desc: Build and start the API service with docker-compose
     interactive: true
     silent: true
     cmds:
-      - cmd: docker compose up --build -d
+      - cmd: docker compose up
 
   down:
     desc: Stop docker-compose services for this project
@@ -42,23 +42,23 @@ tasks:
   server:
     desc: Start the API server locally
     env:
-      AQUALOG_APP_ENV: dev
-      AQUALOG_OAUTH_ISSUER_URL: "https://authentik.home.cylindric.net/application/o/aqualog-api/"
-      AQUALOG_OAUTH_AUDIENCE: "6MyFdAlI2pNl9ZoMGPEhuWBa2So7wyFfGMr85lee"
-      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
-      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
-      CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+      AQUALOG_APP_ENV: "{{.AQUALOG_APP_ENV | default \"dev\"}}"
+      AQUALOG_OAUTH_ISSUER_URL: "{{.AQUALOG_OAUTH_ISSUER_URL | default \"https://auth.aqualog.home.cylindric.net/application/o/aqualog-spa/\"}}"
+      AQUALOG_OAUTH_AUDIENCE: "{{.AQUALOG_OAUTH_AUDIENCE | default \"nnW24FDNL6aQUDU4o8DMKvFaWn1hd2XzLx0M83NR\"}}"
+      REQUESTS_CA_BUNDLE: "{{.REQUESTS_CA_BUNDLE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
+      SSL_CERT_FILE: "{{.SSL_CERT_FILE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
+      CURL_CA_BUNDLE: "{{.CURL_CA_BUNDLE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
 
     cmds:
       # - task: test
       # - task: coverage
-      - cmd: uvicorn aqualog_api.app:create_app --factory --host 0.0.0.0 --port 8000
+      - cmd: uvicorn aqualog_api.app:create_app --reload --factory --host 0.0.0.0 --port 8000
 
   auth-check:
     desc: Validate Authentik token issuance and API authentication without inline secrets
     env:
       ISSUER: "{{.AQUALOG_OAUTH_ISSUER_URL}}"
-      TOKEN_ENDPOINT: "https://authentik.home.cylindric.net/application/o/token/"
+      TOKEN_ENDPOINT: "https://auth.aqualog.home.cylindric.net/application/o/token/"
       API_URL: "http://localhost:8000/api/v1/calculate/dose/salinity?volume=100&current=30&target=35"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
       SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
