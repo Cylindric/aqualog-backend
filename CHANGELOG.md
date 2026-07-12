@@ -1,0 +1,19 @@
+## 0.1.0 (2026-07-12)
+
+### Feat
+
+- update tooling
+- standardise dependencies
+- auth
+- add example compose file
+- add dockerfile for deployment
+- added test-coverage reports
+- add test results to server
+- salinity dosing calculator
+- initial project framework
+
+### Fix
+
+- bump uvicorn from 0.35.0 to 0.51.0
+- bump pytest-html from 4.1.1 to 4.2.0
+- remove redundant main.py
