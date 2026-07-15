@@ -1,5 +1,15 @@
 version: '3'
 
+vars:
+  ContainerName: aqualog-backend
+  Version:
+    sh: poetry run cz version --project
+  MajorVersion:
+    sh: poetry run cz version --project --major
+
+dotenv:
+  - .env
+
 tasks:
   default:
     desc: Show available tasks
@@ -14,7 +24,32 @@ tasks:
   build:
     desc: Build the project
     cmds:
-      - cmd: docker build -t aqualog-backend:latest .
+      - cmd: poetry lock
+      - cmd: docker build -t {{.ContainerName}}:{{.Version}} .
+
+  scan:
+    desc: Run Trivy scan for vulnerabilities
+    cmds:
+      - cmd: |
+          docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v /var/cache/trivy:/tmp \
+          -v ./.data/trivy:/data \
+          aquasec/trivy image \
+          --no-progress \
+          --format json --output /data/scan-{{.Version}}.json \
+          --scanners vuln,secret \
+          --image-config-scanners misconfig,secret \
+          --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+          --cache-dir /tmp/trivy \
+          {{.ContainerName}}:{{.Version}}
+      - cmd: |
+          docker run --rm \
+          -v ./.data/trivy:/data \
+          aquasec/trivy convert \
+          --severity MEDIUM,HIGH,CRITICAL \
+          --format table --output /data/scan-{{.Version}}.txt \
+          /data/scan-{{.Version}}.json
 
   up:
     desc: Build and start the API service with docker-compose
@@ -83,6 +118,6 @@ tasks:
     desc: Clean up all build artifacts, temporary files, and Docker images
     cmds:
       - task: clean
-      - cmd: docker rmi aqualog-backend-api:latest --force
+      - cmd: docker rmi {{.ContainerName}}:{{.Version}} --force
       - cmd: rm -rf .env
       - cmd: rm -rf .venv
