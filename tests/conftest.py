@@ -5,9 +5,18 @@ from pathlib import Path
 import pytest
 from authlib.jose import JsonWebToken
 
+from aqualog_api.db import reset_database
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+@pytest.fixture(autouse=True)
+def reset_db_state():
+    reset_database()
+    yield
+    reset_database()
 
 
 # Mock JWKS and JWT for testing

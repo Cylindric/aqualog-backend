@@ -8,12 +8,13 @@ from aqualog_api.config import Settings
 
 
 @pytest.fixture
-def auth_settings():
+def auth_settings(tmp_path):
     """Create Settings with OAuth2 configuration for testing."""
     return Settings(
         app_env="test",
         oauth_issuer_url="https://auth.example.com/application/o/aqualog",
         oauth_audience="test-client-id",
+        test_database_url=f"sqlite+pysqlite:///{tmp_path}/test-salinity.db",
     )
 
 
@@ -114,7 +115,7 @@ def test_salinity_dose_missing_or_invalid_params_return_standard_error_envelope(
 
 
 def test_salinity_dose_requires_authentication(auth_settings):
-    """Test that salinity dose endpoint returns 403 without authentication (HTTPBearer missing)."""
+    """Test that salinity dose endpoint returns 401 without authentication."""
     app = create_app(auth_settings)
 
     with TestClient(app) as client:
@@ -125,10 +126,9 @@ def test_salinity_dose_requires_authentication(auth_settings):
         )
 
     body = response.json()
-    # HTTPBearer returns 403 when no credentials provided
-    assert response.status_code == 403
+    assert response.status_code == 401
     assert body["success"] is False
-    assert body["error"]["code"] == "http_error"
+    assert body["error"]["code"] == "authentication_error"
 
 
 def test_salinity_dose_rejects_invalid_token(auth_settings, mock_jwks):

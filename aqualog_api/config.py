@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,8 +10,18 @@ class Settings(BaseSettings):
     coverage_reports_dir: str = "artifacts/coverage"
     oauth_issuer_url: str | None = None
     oauth_audience: str | None = None
+    oauth_client_id: str | None = None
+    database_url: str = "sqlite+pysqlite:///:memory:"
+    test_database_url: str = "sqlite+pysqlite:///:memory:"
 
     model_config = SettingsConfigDict(env_prefix="AQUALOG_", extra="ignore")
+
+    @model_validator(mode="after")
+    def set_oauth_audience_fallback(self) -> "Settings":
+        # Preserve compatibility with existing env files that use CLIENT_ID.
+        if not self.oauth_audience and self.oauth_client_id:
+            self.oauth_audience = self.oauth_client_id
+        return self
 
 
 def load_settings() -> Settings:

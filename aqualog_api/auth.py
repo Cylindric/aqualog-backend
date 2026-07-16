@@ -9,8 +9,12 @@ from authlib.jose import JsonWebToken
 from authlib.jose.errors import JoseError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
 from aqualog_api.config import Settings, load_settings
+from aqualog_api.db import get_session
+from aqualog_api.user_repository import UserRepository
+from aqualog_api.user_service import AuthenticatedUser, resolve_or_create_authenticated_user
 
 logger = logging.getLogger(__name__)
 
@@ -137,13 +141,14 @@ async def validate_token(
 
 
 # OAuth2 security scheme
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> dict[str, Any]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    session: Session = Depends(get_session),
+) -> AuthenticatedUser:
     """
     FastAPI dependency for protecting endpoints with OAuth2 authentication.
     
@@ -158,11 +163,19 @@ async def get_current_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication service is not configured",
         )
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     try:
         token = credentials.credentials
         claims = await validate_token(token, settings)
-        return claims
+        repository = UserRepository(session)
+        return resolve_or_create_authenticated_user(claims, repository)
     except ValueError as e:
         logger.warning(f"Authentication failed: {e}")
         raise HTTPException(
@@ -171,9 +184,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        logger.error(f"Authentication error: {e}")
+        logger.error(f"Authentication context error: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication context unavailable",
         )

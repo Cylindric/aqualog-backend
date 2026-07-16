@@ -5,6 +5,7 @@ def test_compose_file_defines_api_service_with_dockerfile_build():
     compose = Path("docker-compose.yml").read_text(encoding="utf-8")
 
     assert "services:" in compose
+    assert "postgres:" in compose
     assert "api:" in compose
     assert "build:" in compose
     assert "context: ." in compose
@@ -23,3 +24,4 @@ def test_compose_file_defines_overridable_runtime_defaults():
     assert '${AQUALOG_APP_ENV:-dev}' in compose
     assert '${AQUALOG_API_VERSION:-v1}' in compose
     assert '${AQUALOG_LOG_LEVEL:-INFO}' in compose
+    assert '${AQUALOG_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aqualog}' in compose
