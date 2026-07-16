@@ -1,3 +1,9 @@
+## 0.2.3 (2026-07-16)
+
+### Fix
+
+- some naming inconsistencies
+
 ## 0.2.2 (2026-07-16)
 
 ### Fix
