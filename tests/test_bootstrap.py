@@ -31,3 +31,13 @@ def test_unknown_route_returns_not_found_without_crash():
         response = client.get("/api/v1/not-a-route")
 
     assert response.status_code == 404
+
+
+def test_oauth_audience_falls_back_to_client_id(monkeypatch):
+    monkeypatch.setenv("AQUALOG_APP_ENV", "test")
+    monkeypatch.delenv("AQUALOG_OAUTH_AUDIENCE", raising=False)
+    monkeypatch.setenv("AQUALOG_OAUTH_CLIENT_ID", "client-id-from-env")
+
+    settings = load_settings()
+
+    assert settings.oauth_audience == "client-id-from-env"

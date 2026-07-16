@@ -15,6 +15,6 @@
         "mkdir -p openspec/.*": true
     },
     "python.terminal.useEnvFile": false,
-    "python-envs.defaultEnvManager": "ms-python.python:poetry",
-    "python-envs.defaultPackageManager": "ms-python.python:poetry"
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.defaultPackageManager": "ms-python.python:pip"
 }

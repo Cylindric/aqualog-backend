@@ -6,12 +6,13 @@ from aqualog_api.config import Settings
 
 
 @pytest.fixture
-def auth_settings():
+def auth_settings(tmp_path):
     """Create Settings with OAuth2 configuration for testing."""
     return Settings(
         app_env="test",
         oauth_issuer_url="https://auth.example.com/application/o/aqualog",
         oauth_audience="test-client-id",
+        test_database_url=f"sqlite+pysqlite:///{tmp_path}/test-health.db",
     )
 
 

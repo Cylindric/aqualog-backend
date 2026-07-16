@@ -10,8 +10,10 @@ from starlette.staticfiles import StaticFiles
 
 from aqualog_api.calculation import build_calculation_router
 from aqualog_api.config import Settings, load_settings
+from aqualog_api.db import init_database
 from aqualog_api.health import ReadinessState, build_health_router
 from aqualog_api.logging_middleware import RequestLoggingMiddleware
+from aqualog_api.profile import build_profile_router
 from aqualog_api.responses import error_response, success_response
 
 
@@ -34,7 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup dependency checks would run here in real environments.
+        init_database(settings)
         app.state.readiness.is_ready = True
         yield
 
@@ -68,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     versioned_prefix = f"/api/{settings.api_version}"
     app.include_router(build_health_router(app.state.readiness), prefix=versioned_prefix)
     app.include_router(build_calculation_router(), prefix=versioned_prefix)
+    app.include_router(build_profile_router(), prefix=versioned_prefix)
 
     @app.get("/")
     async def root(request: Request):

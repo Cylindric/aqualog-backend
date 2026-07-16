@@ -56,6 +56,8 @@ tasks:
     interactive: true
     silent: true
     cmds:
+      - cmd: mkdir -p ./.data/pgadmin4
+      - cmd: sudo chown -R 5050:5050 ./.data/pgadmin4
       - cmd: docker compose up
 
   down:
@@ -65,18 +67,24 @@ tasks:
 
   server:
     desc: Start the API server locally
-    env:
-      AQUALOG_APP_ENV: "{{.AQUALOG_APP_ENV | default \"dev\"}}"
-      AQUALOG_OAUTH_ISSUER_URL: "{{.AQUALOG_OAUTH_ISSUER_URL | default \"https://auth.aqualog.home.cylindric.net/application/o/aqualog-spa/\"}}"
-      AQUALOG_OAUTH_AUDIENCE: "{{.AQUALOG_OAUTH_AUDIENCE | default \"nnW24FDNL6aQUDU4o8DMKvFaWn1hd2XzLx0M83NR\"}}"
-      REQUESTS_CA_BUNDLE: "{{.REQUESTS_CA_BUNDLE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
-      SSL_CERT_FILE: "{{.SSL_CERT_FILE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
-      CURL_CA_BUNDLE: "{{.CURL_CA_BUNDLE | default \"/etc/ssl/certs/ca-certificates.crt\"}}"
-
     cmds:
       # - task: test
       # - task: coverage
-      - cmd: poetry run uvicorn aqualog_api.app:create_app --reload --factory --host 0.0.0.0 --port 9000
+      # - cmd: env | grep AQUALOG
+      - cmd: poetry lock
+      - cmd: poetry sync
+      - task: db-migrate
+      - cmd: poetry run uvicorn aqualog_api.app:create_app --reload --factory --host 0.0.0.0 --port 9001
+
+  db-migrate:
+    desc: Run pending database migrations
+    cmds:
+      - cmd: poetry run alembic upgrade head
+
+  db-migration-new:
+    desc: Create a new migration (name via NAME var)
+    cmds:
+      - cmd: poetry run alembic revision --autogenerate -m "{{.NAME}}"
 
   auth-check:
     desc: Validate Authentik token issuance and API authentication without inline secrets
@@ -121,3 +129,13 @@ tasks:
       - cmd: docker rmi {{.ContainerName}}:{{.Version}} --force
       - cmd: rm -rf .env
       - cmd: rm -rf .venv
+
+  bash:
+    desc: Open a bash shell in the backend container
+    cmds:
+      - cmd: docker run --network=backend_default --env-file .env --rm -it {{.ContainerName}}:{{.Version}} bash
+
+  run:
+    desc: Run the backend container
+    cmds:
+      - cmd: docker run --network=backend_default --env-file .env --rm -it {{.ContainerName}}:{{.Version}}

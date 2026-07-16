@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-ISSUER="${ISSUER:-https://auth.aqualog.home.cylindric.net/application/o/aqualog-spa/}"
-TOKEN_ENDPOINT="${TOKEN_ENDPOINT:-https://auth.aqualog.home.cylindric.net/application/o/token/}"
-CLIENT_ID="${CLIENT_ID:-}"
-REDIRECT_URI="${REDIRECT_URI:-http://127.0.0.1:8400/callback}"
-SCOPE="${SCOPE:-openid profile email offline_access}"
-AUTH_CODE="${AUTH_CODE:-}"
-AUTO_CAPTURE_CODE="${AUTO_CAPTURE_CODE:-1}"
+ISSUER="${AQUALOG_OAUTH_ISSUER_URL}"
+TOKEN_ENDPOINT="${AQUALOG_OAUTH_TOKEN_ENDPOINT}"
+CLIENT_ID="${AQUALOG_OAUTH_CLIENT_ID:-}"
+REDIRECT_URI="${REDIRECT_URI}"
+SCOPE="openid profile email offline_access"
+AUTH_CODE=""
+AUTO_CAPTURE_CODE="1"
 
 if [[ -z "$CLIENT_ID" ]]; then
   echo "Missing required environment variable: CLIENT_ID"
@@ -182,4 +182,14 @@ echo "== 6) Verify refresh token can be exchanged again =="
 RESP3="$(request_refresh_token "$TOKEN_FOR_NEXT_TEST")"
 echo "$RESP3" | jq '{error, error_description, token_type, expires_in, has_access_token:(.access_token!=null), has_id_token:(.id_token!=null), has_refresh_token:(.refresh_token!=null)}'
 
-echo "$RESP3" | jq '.access_token' 
+echo "== 7) Print the JWT access token from the last refresh exchange =="
+JWT="$(echo "$RESP3" | jq -r '.access_token // empty')"
+if [[ -z "$JWT" ]]; then
+  echo "No access token returned from refresh exchange. Stopping."
+  exit 1
+else
+  echo "$JWT"
+fi
+
+echo "== 8) Call API =="
+curl -s -H "Authorization: Bearer $JWT" "$API_URL" | jq .
