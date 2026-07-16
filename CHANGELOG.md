@@ -1,3 +1,13 @@
+## 0.2.0 (2026-07-16)
+
+### Feat
+
+- add database storage backend
+
+### Fix
+
+- bump dependencies
+
 ## 0.1.1 (2026-07-12)
 
 ### Fix
