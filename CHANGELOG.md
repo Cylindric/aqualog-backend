@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.3.6 (2026-07-17)
+
+### Fix
+
+- updated build
+
 ## v0.3.5 (2026-07-17)
 
 ### Fix
