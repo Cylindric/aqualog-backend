@@ -49,9 +49,8 @@ jobs:
       id: push
       uses: docker/build-push-action@v7
       with:
-        context: .
         push: true
-        tags: ghcr.io/${{ github.repository }}:${{ steps.getversion.outputs.value }}
+        tags: ${{ steps.meta.outputs.tags }}
 
     - name: Generate artifact attestation
       uses: actions/attest@v4
