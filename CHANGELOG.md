@@ -1,3 +1,9 @@
+## 0.3.1 (2026-07-17)
+
+### Fix
+
+- initial schema for aquariums
+
 ## 0.3.0 (2026-07-16)
 
 ### Feat
