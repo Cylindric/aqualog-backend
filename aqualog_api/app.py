@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
 
@@ -34,6 +35,8 @@ def configure_logging(level: str) -> logging.Logger:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     logger = configure_logging(settings.log_level)
+    static_dir = Path(__file__).parent / "static"
+    favicon_path = static_dir / "favicon.png"
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -44,7 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Aqualog Backend API", 
         lifespan=lifespan,
-        doc_url="/api/v1/docs",
+        docs_url="/api/v1/docs",
         openapi_url="/api/v1/openapi.json",
         redoc_url=None,
         swagger_ui_parameters={"tryItOutEnabled": True}
@@ -52,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.readiness = ReadinessState(is_ready=False)
     app.state.settings = settings
     app.state.logger = logger
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     app.add_middleware(
         CORSMiddleware,
@@ -88,6 +92,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {"service": "aqualog-backend-api", "version": settings.api_version},
             request_id=request_id,
         )
+
+    @app.get("/favicon.png", include_in_schema=False)
+    async def favicon_png():
+        return FileResponse(favicon_path, media_type="image/png")
 
     @app.exception_handler(ValidationError)
     async def settings_validation_exception_handler(request: Request, _exc: ValidationError):

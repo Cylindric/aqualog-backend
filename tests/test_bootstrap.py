@@ -41,3 +41,13 @@ def test_oauth_audience_falls_back_to_client_id(monkeypatch):
     settings = load_settings()
 
     assert settings.oauth_audience == "client-id-from-env"
+
+
+def test_favicon_route_serves_icon():
+    app = create_app(Settings(app_env="test", api_version="v1"))
+
+    with TestClient(app) as client:
+        response = client.get("/favicon.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/png")
