@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.3.9 (2026-07-18)
+
+### Fix
+
+- add favicon
+
 ## v0.3.8 (2026-07-18)
 
 ### Fix
