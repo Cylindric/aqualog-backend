@@ -62,3 +62,35 @@ jobs:
           subject-name: ghcr.io/${{ github.repository}}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Lookup the Droplet IP address from the DigitalOcean API
+        id: droplet_ip
+        run: |
+          DIGITALOCEAN_TOKEN="${{ secrets.DIGITALOCEAN_TOKEN }}"
+          RESULT=$(curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" "https://api.digitalocean.com/v2/droplets?page=1&per_page=1")
+          IP_ADDRESS=$(echo $RESULT | jq -r '.droplets[0].networks.v4[0].ip_address')
+          echo "Droplet IP address: $IP_ADDRESS"
+          echo "DROPLET_IP=$IP_ADDRESS" >> $GITHUB_ENV
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DROPLET_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Reload DigitalOcean Droplet
+        run: |
+          ssh -i ~/.ssh/id_rsa root@${{ env.DROPLET_IP }} "/opt/aqualog/restart-${{ env.IMAGE_NAME }}.sh"

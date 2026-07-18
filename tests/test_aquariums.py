@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -182,3 +182,36 @@ def test_aquarium_name_unique_per_user(create_valid_token, auth_settings, mock_j
                 json={"name": "Nano", "type": "reef", "volume": {"value": 25.0, "unit": "L"}},
             )
             assert same_name_other_user.status_code == 201
+
+
+def test_create_aquarium_logs_debug_context(create_valid_token, auth_settings, mock_jwks):
+    token = create_valid_token(sub="logger-owner", aud="test-client-id")
+    app = create_app(auth_settings)
+    mock_logger = MagicMock()
+    app.state.logger = mock_logger
+
+    with patch("aqualog_api.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/aquariums",
+                headers=_auth_header(token),
+                json={"name": "Debug Tank", "type": "reef", "volume": {"value": 10.0, "unit": "gal_us"}},
+            )
+
+    assert response.status_code == 201
+    assert mock_logger.info.call_count >= 2
+    start_call = next(call for call in mock_logger.info.call_args_list if call.args[0] == "aquarium.create.start")
+    assert start_call.kwargs["extra"]["request_id"] == "req-aquarium"
+    assert start_call.kwargs["extra"]["aquarium_name"] == "Debug Tank"
+    assert start_call.kwargs["extra"]["aquarium_type"] == "reef"
+    assert start_call.kwargs["extra"]["volume_value"] == 10.0
+    assert start_call.kwargs["extra"]["volume_unit"] == "gal_us"
+    assert start_call.kwargs["extra"]["volume_liters"] == pytest.approx(37.85411784)
+    assert start_call.kwargs["extra"]["owner_user_id"]
+
+    success_call = next(call for call in mock_logger.info.call_args_list if call.args[0] == "aquarium.create.success")
+    assert success_call.kwargs["extra"]["request_id"] == "req-aquarium"
+    assert success_call.kwargs["extra"]["owner_user_id"] == start_call.kwargs["extra"]["owner_user_id"]
+    assert success_call.kwargs["extra"]["aquarium_name"] == "Debug Tank"
+    assert success_call.kwargs["extra"]["aquarium_id"]

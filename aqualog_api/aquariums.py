@@ -170,17 +170,51 @@ def build_aquarium_router() -> APIRouter:
         current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
+        logger = request.app.state.logger
+        logger.info("aquarium.request")
         request_id = getattr(request.state, "request_id", "unknown")
         repository = AquariumRepository(session)
+        volume_liters = _to_liters(payload.volume)
+
+        logger.info(
+            "aquarium.create.start",
+            extra={
+                "request_id": request_id,
+                "owner_user_id": current_user.user.id,
+                "aquarium_name": payload.name,
+                "aquarium_type": payload.type,
+                "volume_value": payload.volume.value,
+                "volume_unit": payload.volume.unit,
+                "volume_liters": volume_liters,
+            },
+        )
         try:
             aquarium = repository.create(
                 owner_user_id=current_user.user.id,
                 name=payload.name,
                 aquarium_type=payload.type,
-                volume_liters=_to_liters(payload.volume),
+                volume_liters=volume_liters,
             )
         except DuplicateAquariumNameError as exc:
+            logger.warning(
+                "aquarium.create.duplicate_name",
+                extra={
+                    "request_id": request_id,
+                    "owner_user_id": current_user.user.id,
+                    "aquarium_name": payload.name,
+                },
+            )
             raise _duplicate_name_http_error() from exc
+
+        logger.info(
+            "aquarium.create.success",
+            extra={
+                "request_id": request_id,
+                "owner_user_id": current_user.user.id,
+                "aquarium_id": aquarium.id,
+                "aquarium_name": aquarium.name,
+            },
+        )
 
         return success_response(_to_payload(aquarium), request_id=request_id, status_code=status.HTTP_201_CREATED)
 

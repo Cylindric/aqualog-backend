@@ -10,6 +10,11 @@ SCOPE="openid profile email offline_access"
 AUTH_CODE=""
 AUTO_CAPTURE_CODE="1"
 
+echo "Using the following configuration:"
+echo "  ISSUER: $ISSUER"
+echo "  TOKEN_ENDPOINT: $TOKEN_ENDPOINT"
+echo "  API_URL: $API_URL"
+
 if [[ -z "$CLIENT_ID" ]]; then
   echo "Missing required environment variable: CLIENT_ID"
   exit 1

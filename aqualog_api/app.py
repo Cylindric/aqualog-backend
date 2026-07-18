@@ -1,6 +1,9 @@
 import logging
+from logging.config import dictConfig
 from pathlib import Path
 from contextlib import asynccontextmanager
+import json
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,17 +21,72 @@ from aqualog_api.logging_middleware import RequestLoggingMiddleware
 from aqualog_api.profile import build_profile_router
 from aqualog_api.responses import error_response, success_response
 
+# Custom JSON formatter
+
+class JsonFormatter(logging.Formatter):
+
+    def format(self, record):
+        log_record = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "line": record.lineno,
+            "message": record.getMessage(),
+        }
+
+        # Add exception info if available
+        if record.exc_info:
+            log_record["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_record)
+
 
 def configure_logging(level: str) -> logging.Logger:
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "json": {
+                "()": JsonFormatter
+            }
+       },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": level.upper(),
+                "formatter": "default",
+                "stream": "ext://sys.stdout",
+            },
+            "file": {
+                "class": "logging.FileHandler",
+                "level": level.upper(),
+                "formatter": "json",
+                "filename": "fastapi.log",
+                "mode": "a",
+            },
+
+        },
+        "loggers": {
+            "app": {"handlers": ["console"], "level": level.upper(), "propagate": False},
+        },
+        "root": {"handlers": ["console"], "level": level.upper()},
+    }
+
+    dictConfig(log_config)
     logger = logging.getLogger("aqualog.api")
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            "%(asctime)s %(name)s %(levelname)s %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    logger.setLevel(level.upper())
+    # if not logger.handlers:
+    #     handler = logging.StreamHandler()
+    #     formatter = logging.Formatter(
+    #         "%(asctime)s %(name)s %(levelname)s %(message)s"
+    #     )
+    #     handler.setFormatter(formatter)
+    #     logger.addHandler(handler)
+    # logger.setLevel(level.upper())
     return logger
 
 

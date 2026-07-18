@@ -8,7 +8,7 @@ vars:
     sh: poetry run cz version --project --major
 
 dotenv:
-  - .env
+  - ../.env
 
 tasks:
   default:
@@ -81,7 +81,7 @@ tasks:
       - cmd: poetry lock
       - cmd: poetry sync
       - task: db-migrate
-      - cmd: poetry run uvicorn aqualog_api.app:create_app --reload --factory --host 0.0.0.0 --port 9001
+      - cmd: poetry run uvicorn aqualog_api.app:create_app --reload --factory --host 0.0.0.0 --port 8001
 
   db-migrate:
     desc: Run pending database migrations
