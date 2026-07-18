@@ -1,6 +1,6 @@
 [project]
 name = "aqualog-api"
-version = "0.3.7"
+version = "0.3.8"
 description = "AquaLog Backend API"
 authors = [
     {name = "Cylindric",email = "mark@hanfordonline.co.uk"}
