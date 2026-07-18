@@ -1,5 +1,8 @@
 # AquaLog
 
+[![Bump version](https://github.com/Cylindric/aqualog-backend/actions/workflows/bumpversion.yaml/badge.svg)](https://github.com/Cylindric/aqualog-backend/actions/workflows/bumpversion.yaml)
+[![Build container](https://github.com/Cylindric/aqualog-backend/actions/workflows/build_container.yaml/badge.svg)](https://github.com/Cylindric/aqualog-backend/actions/workflows/build_container.yaml)
+
 ## Dev Environment Setup
 
 ```bash
