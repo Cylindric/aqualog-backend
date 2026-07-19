@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.4.0 (2026-07-19)
+
+### Feat
+
+- add measurement endpoints
+
 ## v0.3.10 (2026-07-18)
 
 ### Fix
