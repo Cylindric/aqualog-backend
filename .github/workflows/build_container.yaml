@@ -63,7 +63,13 @@ jobs:
         with:
           context: ./mail_proxy
           push: ${{ github.event_name != 'pull_request' }}
-          tags: "cylindric/aqualog-mail-proxy:latest"
+          tags: ghcr.io/cylindric/aqualog-mail-proxy:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.version=1.0.0
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.revision }}
+            org.opencontainers.image.url=${{ steps.meta.outputs.url }}
 
       - name: Generate artifact attestation
         uses: actions/attest@v4
