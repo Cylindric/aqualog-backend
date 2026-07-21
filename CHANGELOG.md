@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.5.1 (2026-07-21)
+
+### Fix
+
+- pipeline error in mail relay builder
+
 ## v0.5.0 (2026-07-21)
 
 ### Feat
