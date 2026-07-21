@@ -25,6 +25,7 @@ tasks:
     desc: Build the project
     cmds:
       - cmd: poetry lock
+      - cmd: cd mail_proxy && docker build -t aqualog-mail-proxy:latest .
       - cmd: docker build -t {{.ContainerName}}:latest .
       - cmd: docker image tag {{.ContainerName}}:latest {{.ContainerName}}:{{.Version}}
 

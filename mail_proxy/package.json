@@ -1,0 +1,11 @@
+{
+    "name": "smtp-to-smtpfast-api",
+    "version": "1.0.0",
+    "description": "Local SMTP to SMTPfast HTTP API Bridge",
+    "main": "index.js",
+    "dependencies": {
+        "axios": "^1.18.1",
+        "mailparser": "^3.9.14",
+        "smtp-server": "^3.19.2"
+    }
+}
