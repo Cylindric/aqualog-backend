@@ -64,6 +64,18 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.6.0 (2026-07-22)
+
+### Feat
+
+- additional delete endpoint for params
+- add phosphate measurements
+
+### Fix
+
+- bump obsolete httpx and authlib modules
+- small fixes to test scripts
+
 ## v0.5.1 (2026-07-21)
 
 ### Fix
