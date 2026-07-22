@@ -4,7 +4,7 @@ const axios = require('axios');
 
 // Read configurations from Docker environment variables
 const API_KEY = process.env.SMTPFAST_API_KEY;
-const API_URL = process.env.SMTPFAST_API_URL || 'https://smtpfa.st/api/v1/email';
+const API_URL = process.env.SMTPFAST_API_URL || 'https://smtpfa.st/api/v1/emails';
 const PORT = process.env.PORT || 25;
 
 if (!API_KEY) {
