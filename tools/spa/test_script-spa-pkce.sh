@@ -197,4 +197,5 @@ else
 fi
 
 echo "== 8) Call API =="
+echo "  if an 'Unsupported token algorithm: RS256' error occurs, check that the provider is configured to use HS256 for JWT signing. Try removing and re-adding the signing key in Authentik."
 curl -s -H "Authorization: Bearer $JWT" "$API_URL" | jq .
