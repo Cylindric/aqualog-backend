@@ -106,7 +106,7 @@ tasks:
       AQUALOG_APP_ENV: test
     cmds:
       - mkdir -p artifacts/tests
-      - .venv/bin/pytest -q --cov=src --cov-report=term-missing --html=artifacts/tests/index.html
+      - poetry run pytest -q --cov=src --cov-report=term-missing --html=artifacts/tests/index.html
 
   coverage:
     desc: Run tests with coverage outputs and HTML test report
@@ -114,7 +114,7 @@ tasks:
       AQUALOG_APP_ENV: test
     cmds:
       - mkdir -p artifacts/coverage
-      - .venv/bin/pytest -q --cov=src --cov-report=term-missing --cov-report=html:artifacts/coverage --cov-report=xml --html=artifacts/tests/index.html
+      - poetry run pytest -q --cov=src --cov-report=term-missing --cov-report=html:artifacts/coverage --cov-report=xml --html=artifacts/tests/index.html
 
   clean:
     desc: Clean up build artifacts and temporary files

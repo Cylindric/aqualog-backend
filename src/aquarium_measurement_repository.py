@@ -107,6 +107,28 @@ class AquariumMeasurementRepository:
 
         return query.order_by(AquariumMeasurement.measured_at.asc()).all()
 
+    def delete_measurement(
+        self,
+        aquarium_id: str,
+        parameter: str,
+        measurement_id: str,
+    ) -> bool:
+        measurement = (
+            self.session.query(AquariumMeasurement)
+            .filter(
+                AquariumMeasurement.id == measurement_id,
+                AquariumMeasurement.aquarium_id == aquarium_id,
+                AquariumMeasurement.parameter == parameter,
+            )
+            .first()
+        )
+        if measurement is None:
+            return False
+
+        self.session.delete(measurement)
+        self.session.commit()
+        return True
+
     def _is_owned_aquarium(self, aquarium_id: str, owner_user_id: str) -> bool:
         return (
             self.session.query(Aquarium.id)

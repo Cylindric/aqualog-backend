@@ -182,3 +182,38 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
         assert False, "Expected DuplicateAquariumMeasurementError"
     except DuplicateAquariumMeasurementError:
         pass
+
+
+def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
+    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-delete")
+
+    aquarium = aquarium_repo.create(
+        owner_user_id=owner.id,
+        name="Delete Tank",
+        aquarium_type="reef",
+        volume_liters=95.0,
+    )
+
+    created = measurement_repo.create_measurement(
+        aquarium_id=aquarium.id,
+        owner_user_id=owner.id,
+        parameter="phosphate",
+        value=0.08,
+        unit="ppm",
+        raw_value=0.08,
+        raw_unit="ppm",
+        measured_at=datetime(2026, 7, 3, 12, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert measurement_repo.delete_measurement(
+        aquarium_id=aquarium.id,
+        parameter="phosphate",
+        measurement_id=created.id,
+    )
+
+    assert not measurement_repo.delete_measurement(
+        aquarium_id=aquarium.id,
+        parameter="phosphate",
+        measurement_id=created.id,
+    )

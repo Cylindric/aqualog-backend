@@ -50,6 +50,14 @@ Example with overrides:
   - Returns `503` with `not_ready` status before readiness is complete
   - Returns `200` with `ready` status when initialized
 
+## Measurement Endpoint Contract
+
+- Canonical measurement endpoints are parameterized by path:
+  - `POST /api/v1/aquariums/{aquarium_id}/measurements/{parameter}`
+  - `GET /api/v1/aquariums/{aquarium_id}/measurements/{parameter}`
+- Supported `{parameter}` values are `salinity` and `phosphate`.
+- Mixed-case `{parameter}` aliases are accepted and normalized to lowercase before processing.
+
 ## Response Envelopes
 
 All successful responses follow:

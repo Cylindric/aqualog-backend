@@ -67,47 +67,21 @@ class CreateSalinityMeasurementRequest(BaseModel):
 class CreateMeasurementRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    parameter: str
     unit: str
     value: float
     measured_at: datetime
 
-    @field_validator("parameter")
-    @classmethod
-    def validate_parameter(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in SUPPORTED_PARAMETERS:
-            raise ValueError("Parameter must be one of: salinity, phosphate")
-        return normalized
-
     @field_validator("unit")
     @classmethod
-    def validate_unit(cls, value: str, info) -> str:
-        parameter = (info.data.get("parameter") or "").strip().lower()
+    def validate_unit(cls, value: str) -> str:
         normalized = value.strip().lower()
-        if parameter == SALINITY_PARAMETER and normalized not in SUPPORTED_SALINITY_UNITS:
-            raise ValueError("Salinity unit must be one of: ppt, sg")
-        if parameter == PHOSPHATE_PARAMETER and normalized not in SUPPORTED_PHOSPHATE_UNITS:
-            raise ValueError("Phosphate unit must be: ppm")
         return normalized
 
     @field_validator("value")
     @classmethod
-    def validate_value(cls, value: float, info) -> float:
-        parameter = (info.data.get("parameter") or "").strip().lower()
-        unit = (info.data.get("unit") or "").strip().lower()
+    def validate_value(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("Measurement value must be greater than 0")
-
-        if parameter == SALINITY_PARAMETER:
-            if unit == "ppt" and value > MAX_SALINITY_PPT:
-                raise ValueError("Salinity value in ppt must be less than or equal to 100")
-            if unit == "sg" and not (MIN_SALINITY_SG <= value <= MAX_SALINITY_SG):
-                raise ValueError("Salinity value in sg must be between 1.0 and 1.04")
-
-        if parameter == PHOSPHATE_PARAMETER and value > MAX_PHOSPHATE_PPM:
-            raise ValueError("Phosphate value in ppm must be less than or equal to 100")
-
         return value
 
     @field_validator("measured_at")
@@ -158,11 +132,42 @@ def _canonicalize_measurement(parameter: str, value: float, unit: str) -> tuple[
     return value, "ppm"
 
 
+def _validate_measurement_payload(parameter: str, value: float, unit: str) -> None:
+    if parameter == SALINITY_PARAMETER:
+        if unit not in SUPPORTED_SALINITY_UNITS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Salinity unit must be one of: ppt, sg",
+            )
+        if unit == "ppt" and value > MAX_SALINITY_PPT:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Salinity value in ppt must be less than or equal to 100",
+            )
+        if unit == "sg" and not (MIN_SALINITY_SG <= value <= MAX_SALINITY_SG):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Salinity value in sg must be between 1.0 and 1.04",
+            )
+        return
+
+    if unit not in SUPPORTED_PHOSPHATE_UNITS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Phosphate unit must be: ppm",
+        )
+    if value > MAX_PHOSPHATE_PPM:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Phosphate value in ppm must be less than or equal to 100",
+        )
+
+
 def _normalize_parameter(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in SUPPORTED_PARAMETERS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Parameter must be one of: salinity, phosphate",
         )
     return normalized
@@ -192,12 +197,13 @@ def build_aquarium_measurement_router() -> APIRouter:
     router = APIRouter(prefix="/aquariums", tags=["aquarium-measurements"])
 
     @router.post(
-        "/{aquarium_id}/measurements",
+        "/{aquarium_id}/measurements/{parameter}",
         response_model=MeasurementResponse,
         status_code=status.HTTP_201_CREATED,
     )
     async def create_measurement(
         aquarium_id: str,
+        parameter: str,
         request: Request,
         payload: CreateMeasurementRequest = Body(...),
         current_user: AuthenticatedUser = Depends(get_current_user),
@@ -209,10 +215,13 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
+        normalized_parameter = _normalize_parameter(parameter)
+        _validate_measurement_payload(normalized_parameter, payload.value, payload.unit)
+
         measurement_repo = AquariumMeasurementRepository(session)
         normalized_measured_at = _normalize_timestamp(payload.measured_at)
         canonical_value, canonical_unit = _canonicalize_measurement(
-            payload.parameter,
+            normalized_parameter,
             payload.value,
             payload.unit,
         )
@@ -221,7 +230,7 @@ def build_aquarium_measurement_router() -> APIRouter:
             measurement = measurement_repo.create_measurement(
                 aquarium_id=aquarium.id,
                 owner_user_id=current_user.user.id,
-                parameter=payload.parameter,
+                parameter=normalized_parameter,
                 value=canonical_value,
                 unit=canonical_unit,
                 raw_value=payload.value,
@@ -231,14 +240,15 @@ def build_aquarium_measurement_router() -> APIRouter:
         except DuplicateAquariumMeasurementError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Duplicate {payload.parameter} reading timestamp for aquarium",
+                detail=f"Duplicate {normalized_parameter} reading timestamp for aquarium",
             ) from exc
 
         return success_response(_to_payload(measurement), request_id=request_id, status_code=status.HTTP_201_CREATED)
 
-    @router.get("/{aquarium_id}/measurements", response_model=MeasurementListResponse)
+    @router.get("/{aquarium_id}/measurements/{parameter}", response_model=MeasurementListResponse)
     async def list_measurements(
         aquarium_id: str,
+        parameter: str,
         request: Request,
         measured_from: datetime | None = Query(default=None, alias="from"),
         measured_to: datetime | None = Query(default=None, alias="to"),
@@ -251,22 +261,7 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        parameter_values = request.query_params.getlist("parameter")
-        if len(parameter_values) > 1:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Only a single parameter filter is supported",
-            )
-
-        parameter_filter: str | None = None
-        if parameter_values:
-            raw_parameter = parameter_values[0]
-            if "," in raw_parameter:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Only a single parameter filter is supported",
-                )
-            parameter_filter = _normalize_parameter(raw_parameter)
+        normalized_parameter = _normalize_parameter(parameter)
 
         measurement_repo = AquariumMeasurementRepository(session)
         if measured_from is not None:
@@ -279,19 +274,16 @@ def build_aquarium_measurement_router() -> APIRouter:
             owner_user_id=current_user.user.id,
             measured_from=measured_from,
             measured_to=measured_to,
-            parameter=parameter_filter,
+            parameter=normalized_parameter,
         )
         return success_response([_to_payload(item) for item in measurements], request_id=request_id)
 
-    @router.post(
-        "/{aquarium_id}/measurements/salinity",
-        response_model=MeasurementResponse,
-        status_code=status.HTTP_201_CREATED,
-    )
-    async def create_salinity_measurement(
+    @router.delete("/{aquarium_id}/measurements/{parameter}/{id}")
+    async def delete_measurement(
         aquarium_id: str,
+        parameter: str,
+        id: str,
         request: Request,
-        payload: CreateSalinityMeasurementRequest = Body(...),
         current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
@@ -301,55 +293,16 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
+        normalized_parameter = _normalize_parameter(parameter)
         measurement_repo = AquariumMeasurementRepository(session)
-        normalized_measured_at = _normalize_timestamp(payload.measured_at)
-        canonical_ppt = _to_ppt(payload.value, payload.unit)
-
-        try:
-            measurement = measurement_repo.create_salinity(
-                aquarium_id=aquarium.id,
-                owner_user_id=current_user.user.id,
-                value_ppt=canonical_ppt,
-                raw_value=payload.value,
-                raw_unit=payload.unit,
-                measured_at=normalized_measured_at,
-            )
-        except DuplicateAquariumMeasurementError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Duplicate salinity reading timestamp for aquarium",
-            ) from exc
-
-        return success_response(_to_payload(measurement), request_id=request_id, status_code=status.HTTP_201_CREATED)
-
-    @router.get("/{aquarium_id}/measurements/salinity", response_model=MeasurementListResponse)
-    async def list_salinity_measurements(
-        aquarium_id: str,
-        request: Request,
-        measured_from: datetime | None = Query(default=None, alias="from"),
-        measured_to: datetime | None = Query(default=None, alias="to"),
-        current_user: AuthenticatedUser = Depends(get_current_user),
-        session: Session = Depends(get_session),
-    ):
-        request_id = getattr(request.state, "request_id", "unknown")
-        aquarium_repo = AquariumRepository(session)
-        aquarium = aquarium_repo.get_by_id_and_owner(aquarium_id, current_user.user.id)
-        if aquarium is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
-
-        measurement_repo = AquariumMeasurementRepository(session)
-        if measured_from is not None:
-            measured_from = _normalize_timestamp(measured_from)
-        if measured_to is not None:
-            measured_to = _normalize_timestamp(measured_to)
-
-        measurements = measurement_repo.list_measurements(
+        deleted = measurement_repo.delete_measurement(
             aquarium_id=aquarium.id,
-            owner_user_id=current_user.user.id,
-            measured_from=measured_from,
-            measured_to=measured_to,
-            parameter=SALINITY_PARAMETER,
+            parameter=normalized_parameter,
+            measurement_id=id,
         )
-        return success_response([_to_payload(item) for item in measurements], request_id=request_id)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found")
+
+        return success_response({"id": id, "deleted": True}, request_id=request_id)
 
     return router
