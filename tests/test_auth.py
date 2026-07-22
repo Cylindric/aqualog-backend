@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 from fastapi import HTTPException, status
-from authlib.jose import JsonWebToken
 
 from src.auth import validate_token, get_current_user
 from src.config import Settings
@@ -53,20 +52,7 @@ class TestValidateToken:
     @pytest.mark.asyncio
     async def test_validate_token_with_invalid_issuer(self, create_valid_token, auth_settings, mock_jwks, mock_rsa_keys):
         """Test that tokens with wrong issuer are rejected."""
-        # Create a token with correct key but wrong issuer
-        jwt = JsonWebToken(algorithms=["RS256"])
-        private_key = mock_rsa_keys["private"]
-        
-        claims = {
-            "sub": "user123",
-            "aud": "test-client-id",
-            "iss": "https://wrong-issuer.com",  # Wrong issuer
-            "exp": datetime.now(timezone.utc) + timedelta(seconds=3600),
-            "iat": datetime.now(timezone.utc),
-        }
-        
-        token = jwt.encode({"alg": "RS256"}, claims, private_key)
-        token = token.decode() if isinstance(token, bytes) else token
+        token = create_valid_token(sub="user123", aud="test-client-id", issuer="https://wrong-issuer.com")
 
         with patch("src.auth.get_jwks_keys") as mock_get_keys:
             mock_get_keys.return_value = mock_jwks

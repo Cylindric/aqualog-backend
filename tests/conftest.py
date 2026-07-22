@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from authlib.jose import JsonWebToken
+from joserfc import jwk, jwt
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -40,24 +40,13 @@ def mock_rsa_keys():
 @pytest.fixture
 def mock_jwks(mock_rsa_keys):
     """Generate mock JWKS for testing."""
-    from authlib.jose import JsonWebKey
-    from cryptography.hazmat.primitives import serialization
-    
     public_key = mock_rsa_keys["public"]
-    
-    # Export public key in PEM format and reimport through authlib
-    pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    public_jwk = jwk.import_key(
+        public_key,
+        "RSA",
+        parameters={"kid": "test-key-1", "use": "sig", "alg": "RS256"},
     )
-    
-    jwk = JsonWebKey.import_key(pem)
-    jwk_data = jwk.as_dict()
-    jwk_data["kid"] = "test-key-1"
-    jwk_data["use"] = "sig"
-    jwk_data["alg"] = "RS256"
-
-    return {"keys": [jwk_data]}
+    return jwk.KeySet([public_jwk]).as_dict()
 
 
 @pytest.fixture
@@ -79,20 +68,23 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         sub: str = "test-user",
         aud: str = "test-client-id",
         exp_offset_seconds: int = 3600,
+        issuer: str | None = None,
     ) -> str:
-        jwt = JsonWebToken(algorithms=["RS256"])
-        private_key = mock_rsa_keys["private"]
+        private_key = jwk.import_key(
+            mock_rsa_keys["private"],
+            "RSA",
+            parameters={"kid": "test-key-1", "use": "sig", "alg": "RS256"},
+        )
 
         claims = {
             "sub": sub,
             "aud": aud,
-            "iss": mock_oidc_config["issuer"],
+            "iss": issuer or mock_oidc_config["issuer"],
             "exp": datetime.now(timezone.utc) + timedelta(seconds=exp_offset_seconds),
             "iat": datetime.now(timezone.utc),
         }
 
-        token = jwt.encode({"alg": "RS256"}, claims, private_key)
-        return token.decode() if isinstance(token, bytes) else token
+        return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 
     return _create_token
 
@@ -105,8 +97,11 @@ def create_expired_token(mock_rsa_keys, mock_oidc_config):
         sub: str = "test-user",
         aud: str = "test-client-id",
     ) -> str:
-        jwt = JsonWebToken(algorithms=["RS256"])
-        private_key = mock_rsa_keys["private"]
+        private_key = jwk.import_key(
+            mock_rsa_keys["private"],
+            "RSA",
+            parameters={"kid": "test-key-1", "use": "sig", "alg": "RS256"},
+        )
 
         claims = {
             "sub": sub,
@@ -116,8 +111,7 @@ def create_expired_token(mock_rsa_keys, mock_oidc_config):
             "iat": datetime.now(timezone.utc) - timedelta(seconds=7200),
         }
 
-        token = jwt.encode({"alg": "RS256"}, claims, private_key)
-        return token.decode() if isinstance(token, bytes) else token
+        return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 
     return _create_token
 

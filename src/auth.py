@@ -4,11 +4,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
-from authlib.jose import JsonWebToken
-from authlib.jose.errors import JoseError
+import httpx2
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from joserfc import jwk, jwt
+from joserfc.errors import JoseError
 from sqlalchemy.orm import Session
 
 from src.config import Settings, load_settings
@@ -19,7 +19,6 @@ from src.user_service import AuthenticatedUser, resolve_or_create_authenticated_
 logger = logging.getLogger(__name__)
 
 # JWT and JWKS caching
-_jwt_instance: JsonWebToken | None = None
 _jwks_keys: dict[str, Any] | None = None
 _jwks_expiry: datetime | None = None
 JWKS_CACHE_TTL_SECONDS = 3600  # 1 hour
@@ -42,7 +41,7 @@ async def get_jwks_keys(settings: Settings) -> dict[str, Any]:
     
     try:
         # Fetch OIDC discovery document
-        async with httpx.AsyncClient() as client:
+        async with httpx2.AsyncClient() as client:
             # Ensure issuer URL ends without trailing slash for discovery
             issuer = settings.oauth_issuer_url.rstrip("/")
             discovery_url = f"{issuer}/.well-known/openid-configuration"
@@ -69,7 +68,7 @@ async def get_jwks_keys(settings: Settings) -> dict[str, Any]:
             logger.info("JWKS keys fetched and cached successfully")
             return _jwks_keys
             
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         logger.error(f"Failed to fetch JWKS: {e}")
         raise
     except Exception as e:
@@ -87,21 +86,19 @@ async def validate_token(
     Returns the decoded token claims if valid.
     Raises HTTPException with 401 status if validation fails.
     """
-    global _jwt_instance
-    
-    if _jwt_instance is None:
-        _jwt_instance = JsonWebToken(algorithms=["RS256"])
-    
     try:
         # Get JWKS keys for signature validation
         jwks = await get_jwks_keys(settings)
+        key_set = jwk.KeySet.import_key_set(jwks)
         
         # Decode and validate token
         issuer = settings.oauth_issuer_url.rstrip("/")
-        claims = _jwt_instance.decode(
+        decoded = jwt.decode(
             token,
-            jwks,
+            key_set,
+            algorithms=["RS256"],
         )
+        claims = decoded.claims
         
         # Validate issuer. Normalize trailing slash because providers may emit
         # issuer URLs with or without a final '/'.
