@@ -35,7 +35,17 @@ poetry run pytest tests/test_aquariums.py -k create_aquarium -q
 
 Tests require `AQUALOG_APP_ENV=test` (set automatically by `task test`/`task coverage`), which makes `src/db.py` use an in-memory SQLite DB created via `Base.metadata.create_all` (not Alembic). The autouse `reset_db_state` fixture in `tests/conftest.py` disposes and reconfigures the engine before/after every test, so tests never leak state through the module-level engine/session singletons.
 
-There is no configured linter/formatter (no ruff/black/mypy in `pyproject.toml`) — don't invent lint commands.
+Code style is enforced with **Ruff** (lint + format, config in `pyproject.toml` under `[tool.ruff]`) and **mypy** (`[tool.mypy]`), wired into `pre-commit` (`.pre-commit-config.yaml`). Use the Task wrappers rather than invoking poetry directly:
+
+```bash
+task lint             # ruff check .
+task lint-fix         # ruff check --fix .
+task format           # ruff format .
+task format-check     # ruff format --check .   (CI mode, no writes)
+task typecheck        # mypy src
+task precommit-install  # one-time: install git hooks
+task precommit-run      # run all hooks against the full repo
+```
 
 ## Architecture
 

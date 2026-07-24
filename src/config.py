@@ -26,5 +26,4 @@ class Settings(BaseSettings):
 
 def load_settings() -> Settings:
     """Load settings and fail fast when mandatory values are missing."""
-    return Settings()
-
+    return Settings()  # type: ignore[call-arg]  # fields resolved from env vars, not visible to mypy

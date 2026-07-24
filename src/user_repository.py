@@ -17,20 +17,26 @@ class UserRepository:
             .one_or_none()
         )
 
-    def create_for_identity(self, oauth_issuer: str, oauth_subject: str) -> User:
-        user = User(oauth_issuer=oauth_issuer, oauth_subject=oauth_subject)
+    def create_for_identity(
+        self, oauth_issuer: str, oauth_subject: str, username: str | None = None
+    ) -> User:
+        user = User(oauth_issuer=oauth_issuer, oauth_subject=oauth_subject, username=username)
         self.session.add(user)
         self.session.commit()
         self.session.refresh(user)
         return user
 
-    def resolve_or_create(self, oauth_issuer: str, oauth_subject: str) -> User:
+    def resolve_or_create(
+        self, oauth_issuer: str, oauth_subject: str, username: str | None = None
+    ) -> User:
         existing = self.get_by_identity(oauth_issuer=oauth_issuer, oauth_subject=oauth_subject)
         if existing is not None:
             return existing
 
         try:
-            return self.create_for_identity(oauth_issuer=oauth_issuer, oauth_subject=oauth_subject)
+            return self.create_for_identity(
+                oauth_issuer=oauth_issuer, oauth_subject=oauth_subject, username=username
+            )
         except IntegrityError:
             self.session.rollback()
             # Another request may have created this mapping concurrently.

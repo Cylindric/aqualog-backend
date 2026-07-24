@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
@@ -8,11 +9,8 @@ from src.config import Settings, load_settings
 def test_missing_required_config_fails_fast(monkeypatch):
     monkeypatch.delenv("AQUALOG_APP_ENV", raising=False)
 
-    try:
+    with pytest.raises(ValidationError):
         load_settings()
-        assert False, "Expected settings validation to fail"
-    except ValidationError:
-        assert True
 
 
 def test_versioned_namespace_route_exists():

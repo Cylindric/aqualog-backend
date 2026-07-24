@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import httpx2
 from fastapi import Depends, HTTPException, Request, status
@@ -11,7 +11,7 @@ from joserfc import jwk, jwt
 from joserfc.errors import JoseError
 from sqlalchemy.orm import Session
 
-from src.config import Settings, load_settings
+from src.config import Settings
 from src.db import get_session
 from src.user_repository import UserRepository
 from src.user_service import AuthenticatedUser, resolve_or_create_authenticated_user
@@ -27,47 +27,49 @@ JWKS_CACHE_TTL_SECONDS = 3600  # 1 hour
 async def get_jwks_keys(settings: Settings) -> dict[str, Any]:
     """
     Fetch and cache JWKS keys from the OAuth2 provider's discovery endpoint.
-    
+
     Implements caching to minimize external calls while supporting key rotation.
     Cache TTL is 1 hour by default.
     """
     global _jwks_keys, _jwks_expiry
-    
+
     now = datetime.now(timezone.utc)
-    
+
     # Return cached keys if still valid
     if _jwks_keys is not None and _jwks_expiry is not None and now < _jwks_expiry:
         return _jwks_keys
-    
+
     try:
         # Fetch OIDC discovery document
         async with httpx2.AsyncClient() as client:
             # Ensure issuer URL ends without trailing slash for discovery
+            if settings.oauth_issuer_url is None:
+                raise ValueError("OAuth issuer URL must be configured")
             issuer = settings.oauth_issuer_url.rstrip("/")
             discovery_url = f"{issuer}/.well-known/openid-configuration"
-            
+
             logger.debug(f"Fetching OIDC discovery from {discovery_url}")
             discovery_response = await client.get(discovery_url, timeout=10.0)
             discovery_response.raise_for_status()
             discovery = discovery_response.json()
-            
+
             jwks_uri = discovery.get("jwks_uri")
             if not jwks_uri:
                 raise ValueError("JWKS URI not found in OIDC discovery document")
-            
+
             # Fetch JWKS
             logger.debug(f"Fetching JWKS from {jwks_uri}")
             jwks_response = await client.get(jwks_uri, timeout=10.0)
             jwks_response.raise_for_status()
             jwks_data = jwks_response.json()
-            
+
             # Cache the keys
             _jwks_keys = jwks_data
             _jwks_expiry = now + timedelta(seconds=JWKS_CACHE_TTL_SECONDS)
-            
+
             logger.info("JWKS keys fetched and cached successfully")
             return _jwks_keys
-            
+
     except httpx2.HTTPError as e:
         logger.error(f"Failed to fetch JWKS: {e}")
         raise
@@ -82,16 +84,19 @@ async def validate_token(
 ) -> dict[str, Any]:
     """
     Validate JWT token signature, issuer, and audience claims.
-    
+
     Returns the decoded token claims if valid.
     Raises HTTPException with 401 status if validation fails.
     """
     try:
         # Get JWKS keys for signature validation
         jwks = await get_jwks_keys(settings)
-        key_set = jwk.KeySet.import_key_set(jwks)
-        
+        # jwks is untyped JSON from the OIDC provider; its shape matches KeySetSerialization at runtime.
+        key_set = jwk.KeySet.import_key_set(cast(jwk.KeySetSerialization, jwks))
+
         # Decode and validate token
+        if settings.oauth_issuer_url is None:
+            raise ValueError("OAuth issuer URL must be configured")
         issuer = settings.oauth_issuer_url.rstrip("/")
         decoded = jwt.decode(
             token,
@@ -99,14 +104,14 @@ async def validate_token(
             algorithms=["RS256"],
         )
         claims = decoded.claims
-        
+
         # Validate issuer. Normalize trailing slash because providers may emit
         # issuer URLs with or without a final '/'.
         token_issuer = str(claims.get("iss", "")).rstrip("/")
         if token_issuer != issuer:
             logger.warning(f"Invalid issuer in token: {claims.get('iss')}")
-            raise ValueError(f"Invalid issuer")
-        
+            raise ValueError("Invalid issuer")
+
         # Validate audience
         aud = claims.get("aud")
         if isinstance(aud, list):
@@ -116,25 +121,25 @@ async def validate_token(
         elif aud != settings.oauth_audience:
             logger.warning(f"Invalid audience in token: {aud}")
             raise ValueError("Invalid audience")
-        
+
         # Validate expiration (authlib should already do this, but be explicit)
         exp = claims.get("exp")
         if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
             logger.warning("Token is expired")
             raise ValueError("Token is expired")
-        
+
         logger.debug(f"Token validated successfully for subject: {claims.get('sub')}")
         return claims
-        
+
     except JoseError as e:
         logger.warning(f"JWT validation error: {e}")
-        raise ValueError(f"Invalid token: {str(e)}")
+        raise ValueError(f"Invalid token: {str(e)}") from e
     except ValueError as e:
         logger.warning(f"Token validation failed: {e}")
         raise
     except Exception as e:
         logger.error(f"Unexpected error during token validation: {e}")
-        raise ValueError(f"Token validation error: {str(e)}")
+        raise ValueError(f"Token validation error: {str(e)}") from e
 
 
 # OAuth2 security scheme
@@ -148,12 +153,12 @@ async def get_current_user(
 ) -> AuthenticatedUser:
     """
     FastAPI dependency for protecting endpoints with OAuth2 authentication.
-    
+
     Returns the decoded token claims if validation succeeds.
     Raises HTTPException with 401 status if validation fails.
     """
     settings = request.app.state.settings
-    
+
     if not settings.oauth_issuer_url or not settings.oauth_audience:
         logger.error("OAuth2 configuration is missing")
         raise HTTPException(
@@ -167,7 +172,7 @@ async def get_current_user(
             detail="Missing credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     try:
         token = credentials.credentials
         claims = await validate_token(token, settings)
@@ -179,10 +184,10 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid credentials: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Authentication context error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication context unavailable",
-        )
+        ) from e

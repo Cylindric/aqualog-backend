@@ -87,6 +87,26 @@ tasks:
       - cmd: poetry run alembic upgrade head
       - cmd: poetry run uvicorn src.app:create_app --reload --factory --host 0.0.0.0 --port 8001
 
+  lint:
+    desc: Lint the codebase with ruff
+    cmds:
+      - cmd: poetry run ruff check --fix .
+
+  format:
+    desc: Format the codebase with ruff
+    cmds:
+      - cmd: poetry run ruff format .
+
+  typecheck:
+    desc: Run mypy static type checking
+    cmds:
+      - cmd: poetry run mypy src
+
+  precommit-run:
+    desc: Run all pre-commit hooks against the full repo
+    cmds:
+      - cmd: poetry run pre-commit run --all-files
+
   db-migrate:
     desc: Run pending database migrations
     cmds:
@@ -125,7 +145,7 @@ tasks:
       - cmd: docker compose down --volumes --remove-orphans
       - cmd: rm -rf .data
       - cmd: rm -rf artifacts
-    
+
   clean-all:
     desc: Clean up all build artifacts, temporary files, and Docker images
     cmds:

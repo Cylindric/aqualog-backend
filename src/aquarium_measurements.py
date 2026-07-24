@@ -22,7 +22,7 @@ SUPPORTED_PHOSPHATE_UNITS = {"ppm"}
 SALINITY_PARAMETER = "salinity"
 PHOSPHATE_PARAMETER = "phosphate"
 SUPPORTED_PARAMETERS = {SALINITY_PARAMETER, PHOSPHATE_PARAMETER}
-SG_TO_PPT_FACTOR = 1325.76 # conversion factor valid at a typical reef aquarium temperature of 25°C
+SG_TO_PPT_FACTOR = 1325.76  # conversion factor valid at a typical reef aquarium temperature of 25°C
 MAX_SALINITY_PPT = 100.0
 MIN_SALINITY_SG = 1.0
 MAX_SALINITY_SG = 1.04
@@ -243,7 +243,9 @@ def build_aquarium_measurement_router() -> APIRouter:
                 detail=f"Duplicate {normalized_parameter} reading timestamp for aquarium",
             ) from exc
 
-        return success_response(_to_payload(measurement), request_id=request_id, status_code=status.HTTP_201_CREATED)
+        return success_response(
+            _to_payload(measurement), request_id=request_id, status_code=status.HTTP_201_CREATED
+        )
 
     @router.get("/{aquarium_id}/measurements/{parameter}", response_model=MeasurementListResponse)
     async def list_measurements(
@@ -301,7 +303,9 @@ def build_aquarium_measurement_router() -> APIRouter:
             measurement_id=id,
         )
         if not deleted:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found"
+            )
 
         return success_response({"id": id, "deleted": True}, request_id=request_id)
 

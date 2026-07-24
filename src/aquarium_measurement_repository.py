@@ -95,7 +95,9 @@ class AquariumMeasurementRepository:
         if not self._is_owned_aquarium(aquarium_id, owner_user_id):
             raise ValueError("Aquarium not found")
 
-        query = self.session.query(AquariumMeasurement).filter(AquariumMeasurement.aquarium_id == aquarium_id)
+        query = self.session.query(AquariumMeasurement).filter(
+            AquariumMeasurement.aquarium_id == aquarium_id
+        )
 
         if parameter is not None:
             query = query.filter(AquariumMeasurement.parameter == parameter)

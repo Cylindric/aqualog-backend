@@ -1,4 +1,4 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 

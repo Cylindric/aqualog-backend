@@ -21,6 +21,7 @@ class DoseResponse(BaseModel):
     request_id: str
     data: Dose
 
+
 def build_calculation_router() -> APIRouter:
     router = APIRouter()
 
@@ -34,13 +35,7 @@ def build_calculation_router() -> APIRouter:
     ):
         request_id = getattr(request.state, "request_id", "unknown")
         quantity = (target - current) * GRAMS_PER_LITER_PER_PPT * volume
-        dose = Dose(
-            volume=volume,
-            current=current,
-            target=target,
-            quantity=quantity,
-            unit="g"
-        )
+        dose = Dose(volume=volume, current=current, target=target, quantity=quantity, unit="g")
         return success_response(
             dose.model_dump(),
             request_id=request_id,

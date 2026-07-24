@@ -1,9 +1,9 @@
+import json
 import logging
+from contextlib import asynccontextmanager
+from datetime import datetime
 from logging.config import dictConfig
 from pathlib import Path
-from contextlib import asynccontextmanager
-import json
-from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,8 +12,8 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
 
-from src.aquariums import build_aquarium_router
 from src.aquarium_measurements import build_aquarium_measurement_router
+from src.aquariums import build_aquarium_router
 from src.calculation import build_calculation_router
 from src.config import Settings, load_settings
 from src.db import init_database
@@ -24,8 +24,8 @@ from src.responses import error_response, success_response
 
 # Custom JSON formatter
 
-class JsonFormatter(logging.Formatter):
 
+class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -52,10 +52,8 @@ def configure_logging(level: str) -> logging.Logger:
                 "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S",
             },
-            "json": {
-                "()": JsonFormatter
-            }
-       },
+            "json": {"()": JsonFormatter},
+        },
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
@@ -70,7 +68,6 @@ def configure_logging(level: str) -> logging.Logger:
                 "filename": "fastapi.log",
                 "mode": "a",
             },
-
         },
         "loggers": {
             "app": {"handlers": ["console"], "level": level.upper(), "propagate": False},
@@ -97,7 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     favicon_path = static_dir / "favicon.png"
 
-    logger.info(f"Starting Aqualog Backend API with settings:")
+    logger.info("Starting Aqualog Backend API with settings:")
     # print each key in orange and the value in cyan for better visibility
     for key, value in settings.dict().items():
         logger.info(f"\033[33m{key}\033[0m: \033[36m{value}\033[0m")
@@ -109,12 +106,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="Aqualog Backend API", 
+        title="Aqualog Backend API",
         lifespan=lifespan,
         docs_url="/api/v1/docs",
         openapi_url="/api/v1/openapi.json",
         redoc_url=None,
-        swagger_ui_parameters={"tryItOutEnabled": True}
+        swagger_ui_parameters={"tryItOutEnabled": True},
     )
     app.state.readiness = ReadinessState(is_ready=False)
     app.state.settings = settings

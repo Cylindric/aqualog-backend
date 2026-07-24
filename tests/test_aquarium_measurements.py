@@ -35,10 +35,13 @@ def test_salinity_measurements_require_authentication(auth_settings):
     app = create_app(auth_settings)
 
     with TestClient(app) as client:
-        assert client.post(
-            "/api/v1/aquariums/aq-1/measurements/salinity",
-            json={"unit": "ppt", "value": 35.0, "measured_at": "2026-07-01T12:00:00Z"},
-        ).status_code == 401
+        assert (
+            client.post(
+                "/api/v1/aquariums/aq-1/measurements/salinity",
+                json={"unit": "ppt", "value": 35.0, "measured_at": "2026-07-01T12:00:00Z"},
+            ).status_code
+            == 401
+        )
         assert client.get("/api/v1/aquariums/aq-1/measurements/salinity").status_code == 401
 
 
@@ -96,7 +99,9 @@ def test_salinity_measurement_create_list_happy_path(create_valid_token, auth_se
             assert filtered.json()["data"][0]["measured_at"] == "2026-07-01T12:05:00+00:00"
 
 
-def test_salinity_measurement_duplicate_timestamp_and_cross_user(create_valid_token, auth_settings, mock_jwks):
+def test_salinity_measurement_duplicate_timestamp_and_cross_user(
+    create_valid_token, auth_settings, mock_jwks
+):
     owner_token = create_valid_token(sub="owner", aud="test-client-id")
     other_token = create_valid_token(sub="other", aud="test-client-id")
     app = create_app(auth_settings)
@@ -120,16 +125,22 @@ def test_salinity_measurement_duplicate_timestamp_and_cross_user(create_valid_to
             )
             assert duplicate.status_code == 409
 
-            assert client.post(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/salinity",
-                headers=_auth_header(other_token),
-                json={"unit": "ppt", "value": 35.0, "measured_at": "2026-07-01T12:01:00Z"},
-            ).status_code == 404
+            assert (
+                client.post(
+                    f"/api/v1/aquariums/{aquarium_id}/measurements/salinity",
+                    headers=_auth_header(other_token),
+                    json={"unit": "ppt", "value": 35.0, "measured_at": "2026-07-01T12:01:00Z"},
+                ).status_code
+                == 404
+            )
 
-            assert client.get(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/salinity",
-                headers=_auth_header(other_token),
-            ).status_code == 404
+            assert (
+                client.get(
+                    f"/api/v1/aquariums/{aquarium_id}/measurements/salinity",
+                    headers=_auth_header(other_token),
+                ).status_code
+                == 404
+            )
 
 
 def test_salinity_measurement_validation_errors(create_valid_token, auth_settings, mock_jwks):
@@ -315,7 +326,9 @@ def test_measurement_history_path_parameter_returns_selected_parameter_only(
             assert phosphate_filtered.json()["data"] == []
 
 
-def test_measurement_routes_reject_unsupported_path_parameter(create_valid_token, auth_settings, mock_jwks):
+def test_measurement_routes_reject_unsupported_path_parameter(
+    create_valid_token, auth_settings, mock_jwks
+):
     token = create_valid_token(sub="history-filter", aud="test-client-id")
     app = create_app(auth_settings)
 
@@ -338,7 +351,9 @@ def test_measurement_routes_reject_unsupported_path_parameter(create_valid_token
             assert unsupported_get.status_code == 422
 
 
-def test_measurement_routes_accept_mixed_case_path_aliases(create_valid_token, auth_settings, mock_jwks):
+def test_measurement_routes_accept_mixed_case_path_aliases(
+    create_valid_token, auth_settings, mock_jwks
+):
     token = create_valid_token(sub="mixed-case", aud="test-client-id")
     app = create_app(auth_settings)
 
@@ -364,7 +379,9 @@ def test_measurement_routes_accept_mixed_case_path_aliases(create_valid_token, a
             assert listed.json()["data"][0]["parameter"] == "salinity"
 
 
-def test_legacy_generic_measurement_routes_are_obsolete(create_valid_token, auth_settings, mock_jwks):
+def test_legacy_generic_measurement_routes_are_obsolete(
+    create_valid_token, auth_settings, mock_jwks
+):
     token = create_valid_token(sub="legacy-routes", aud="test-client-id")
     app = create_app(auth_settings)
 

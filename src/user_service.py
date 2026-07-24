@@ -22,5 +22,8 @@ def resolve_or_create_authenticated_user(
     if not issuer or not subject:
         raise ValueError("Token missing required identity claims")
 
-    user = repository.resolve_or_create(oauth_issuer=issuer, oauth_subject=subject)
+    username = claims.get("preferred_username")
+    user = repository.resolve_or_create(
+        oauth_issuer=issuer, oauth_subject=subject, username=username
+    )
     return AuthenticatedUser(claims=claims, user=user)
