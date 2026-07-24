@@ -24,10 +24,14 @@ tasks:
   build:
     desc: Build the project
     cmds:
-      - cmd: poetry lock
+      - task: backend:build
+      - task: mail:build
+
+  backend:build:
+    desc: Build the project
+    cmds:
       - cmd: docker build -t {{.ContainerName}}:latest .
       - cmd: docker image tag {{.ContainerName}}:latest {{.ContainerName}}:{{.Version}}
-      - task: mail:build
 
   mail:build:
     desc: Build the mail proxy Docker image
@@ -41,6 +45,12 @@ tasks:
       - cmd: docker push {{.ContainerName}}:latest
 
   scan:
+    desc: Run Trivy scan for vulnerabilities
+    cmds:
+      - task: backend:scan
+      - task: mail:scan
+
+  backend:scan:
     desc: Run Trivy scan for vulnerabilities
     cmds:
       - cmd: |
@@ -94,8 +104,6 @@ tasks:
     interactive: true
     silent: true
     cmds:
-      - cmd: mkdir -p ./.data/pgadmin4
-      - cmd: sudo chown -R 5050:5050 ./.data/pgadmin4
       - cmd: docker compose up
 
   down:
@@ -180,10 +188,15 @@ tasks:
       - cmd: rm -rf .env
       - cmd: rm -rf .venv
 
+  run:
+    desc: Open a bash shell in the backend container
+    cmds:
+      - cmd: docker run --rm -it {{.ContainerName}}:{{.Version}}
+
   bash:
     desc: Open a bash shell in the backend container
     cmds:
-      - cmd: docker run --rm -it {{.ContainerName}}:{{.Version}} bash
+      - cmd: docker run --rm -it {{.ContainerName}}:latest bash
 
   mail:bash:
     desc: Open a bash shell in the mail proxy container
