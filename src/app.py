@@ -97,6 +97,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     favicon_path = static_dir / "favicon.png"
 
+    logger.info(f"Starting Aqualog Backend API with settings:")
+    # print each key in orange and the value in cyan for better visibility
+    for key, value in settings.dict().items():
+        logger.info(f"\033[33m{key}\033[0m: \033[36m{value}\033[0m")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         init_database(settings)

@@ -4,8 +4,8 @@ set -euo pipefail
 
 ISSUER="${AQUALOG_OAUTH_ISSUER_URL}"
 TOKEN_ENDPOINT="${AQUALOG_OAUTH_TOKEN_ENDPOINT}"
-CLIENT_ID="${AQUALOG_OAUTH_CLIENT_ID:-}"
-REDIRECT_URI="${REDIRECT_URI}"
+CLIENT_ID="${AQUALOG_OAUTH_CLIENT_ID}"
+REDIRECT_URI="http://127.0.0.1:8400/callback"
 SCOPE="openid profile email offline_access"
 AUTH_CODE=""
 AUTO_CAPTURE_CODE="1"
@@ -198,4 +198,4 @@ fi
 
 echo "== 8) Call API =="
 echo "  if an 'Unsupported token algorithm: RS256' error occurs, check that the provider is configured to use HS256 for JWT signing. Try removing and re-adding the signing key in Authentik."
-curl -s -H "Authorization: Bearer $JWT" "$API_URL" | jq .
+curl -s -H "Authorization: Bearer $JWT" "$API_URL" | jq '.'

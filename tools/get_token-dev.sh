@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-source ../.env
+source ../../.env
 API_URL="http://localhost:${BACKEND_PORT_HTTP}/api/v1/calculate/dose/salinity?volume=100&current=30&target=35"
 REDIRECT_URI="http://127.0.0.1:8400/callback"
 
@@ -130,6 +130,9 @@ AUTH_REQUEST_URL="${AUTHORIZATION_ENDPOINT}?response_type=code&client_id=$(urlen
 
 if command -v xdg-open >/dev/null 2>&1; then
   xdg-open "$AUTH_REQUEST_URL" >/dev/null 2>&1 || true
+else
+  echo "Please open the following URL in your browser to authorize:"
+  echo "$AUTH_REQUEST_URL"
 fi
 AUTH_CODE="$(capture_auth_code || true)"
 

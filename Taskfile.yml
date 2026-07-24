@@ -3,9 +3,9 @@ version: '3'
 vars:
   ContainerName: aqualog-backend
   Version:
-    sh: poetry run cz version --project
+    sh: poetry run cz version --project || echo "0.0.0"
   MajorVersion:
-    sh: poetry run cz version --project --major
+    sh: poetry run cz version --project --major || echo "0"
 
 dotenv:
   - ../.env
@@ -16,7 +16,7 @@ tasks:
     cmds:
       - task --list
 
-  setup:
+  init:
     desc: Set up the project environment
     cmds:
       - cmd: ./tools/setup.sh
@@ -75,13 +75,16 @@ tasks:
 
   server:
     desc: Start the API server locally
+    env:
+      AQUALOG_DB_HOST: localhost
+      AQUALOG_DATABASE_URL: "postgresql://{{.AQUALOG_DB_USER}}:{{.AQUALOG_DB_PASSWORD}}@localhost:{{.AQUALOG_DB_PORT}}/{{.AQUALOG_DB_NAME}}"
     cmds:
       # - task: test
       # - task: coverage
-      # - cmd: env | grep AQUALOG
+      - cmd: env | sort | grep AQUALOG
       - cmd: poetry lock
       - cmd: poetry sync
-      - task: db-migrate
+      - cmd: poetry run alembic upgrade head
       - cmd: poetry run uvicorn src.app:create_app --reload --factory --host 0.0.0.0 --port 8001
 
   db-migrate:
