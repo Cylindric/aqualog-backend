@@ -14,6 +14,7 @@ from src.user_service import AuthenticatedUser
 
 class UserProfile(BaseModel):
     id: str
+    username: str | None
     display_name: str | None
     bio: str | None
     created_at: str
@@ -36,6 +37,7 @@ class UpdateProfileRequest(BaseModel):
 def _to_profile_payload(user: User) -> dict[str, str | None]:
     return {
         "id": user.id,
+        "username": user.username,
         "display_name": user.display_name,
         "bio": user.bio,
         "created_at": user.created_at.isoformat(),

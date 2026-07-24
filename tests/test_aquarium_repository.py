@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -70,16 +71,13 @@ def test_aquarium_name_uniqueness_per_user(tmp_path):
         volume_liters=80.0,
     )
 
-    try:
+    with pytest.raises(DuplicateAquariumNameError):
         aquarium_repo.create(
             owner_user_id=owner.id,
             name="Nano",
             aquarium_type="reef",
             volume_liters=85.0,
         )
-        assert False, "Expected DuplicateAquariumNameError"
-    except DuplicateAquariumNameError:
-        pass
 
     # Same name is allowed for different users.
     other_created = aquarium_repo.create(
@@ -108,15 +106,12 @@ def test_aquarium_name_uniqueness_on_update(tmp_path):
         volume_liters=120.0,
     )
 
-    try:
+    with pytest.raises(DuplicateAquariumNameError):
         aquarium_repo.update_by_id_and_owner(
             aquarium_id=second.id,
             owner_user_id=owner.id,
             updates={"name": first.name},
         )
-        assert False, "Expected DuplicateAquariumNameError"
-    except DuplicateAquariumNameError:
-        pass
 
 
 def test_owner_id_is_required_for_queries(tmp_path):
@@ -129,8 +124,5 @@ def test_owner_id_is_required_for_queries(tmp_path):
         lambda: aquarium_repo.update_by_id_and_owner("aq", "", {}),
         lambda: aquarium_repo.delete_by_id_and_owner("aq", ""),
     ):
-        try:
+        with pytest.raises(ValueError):
             call()
-            assert False, "Expected ValueError"
-        except ValueError:
-            pass

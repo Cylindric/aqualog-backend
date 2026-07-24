@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,10 +14,17 @@ from src.user_repository import UserRepository
 
 
 def _build_repos(tmp_path):
-    engine = create_engine(f"sqlite+pysqlite:///{tmp_path}/aquarium-measurement-repo-test.db", future=True)
+    engine = create_engine(
+        f"sqlite+pysqlite:///{tmp_path}/aquarium-measurement-repo-test.db", future=True
+    )
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
-    return AquariumRepository(session), AquariumMeasurementRepository(session), UserRepository(session), session
+    return (
+        AquariumRepository(session),
+        AquariumMeasurementRepository(session),
+        UserRepository(session),
+        session,
+    )
 
 
 def test_measurement_repository_create_list_and_filters(tmp_path):
@@ -61,11 +69,8 @@ def test_measurement_repository_create_list_and_filters(tmp_path):
     )
     assert [m.id for m in filtered_rows] == [m2.id]
 
-    try:
+    with pytest.raises(ValueError):
         measurement_repo.list_salinity(aquarium.id, other.id)
-        assert False, "Expected ValueError"
-    except ValueError:
-        pass
 
 
 def test_measurement_repository_rejects_duplicate_timestamp(tmp_path):
@@ -88,7 +93,7 @@ def test_measurement_repository_rejects_duplicate_timestamp(tmp_path):
         measured_at=measured_at,
     )
 
-    try:
+    with pytest.raises(DuplicateAquariumMeasurementError):
         measurement_repo.create_salinity(
             aquarium_id=aquarium.id,
             owner_user_id=owner.id,
@@ -97,9 +102,6 @@ def test_measurement_repository_rejects_duplicate_timestamp(tmp_path):
             raw_unit="sg",
             measured_at=measured_at,
         )
-        assert False, "Expected DuplicateAquariumMeasurementError"
-    except DuplicateAquariumMeasurementError:
-        pass
 
 
 def test_measurement_repository_generic_create_and_filtering(tmp_path):
@@ -168,7 +170,7 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
         measured_at=measured_at,
     )
 
-    try:
+    with pytest.raises(DuplicateAquariumMeasurementError):
         measurement_repo.create_measurement(
             aquarium_id=aquarium.id,
             owner_user_id=owner.id,
@@ -179,9 +181,6 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
             raw_unit="ppm",
             measured_at=measured_at,
         )
-        assert False, "Expected DuplicateAquariumMeasurementError"
-    except DuplicateAquariumMeasurementError:
-        pass
 
 
 def test_measurement_repository_delete_by_id_and_parameter(tmp_path):

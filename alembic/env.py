@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import os
-
 from logging.config import fileConfig
 
 from alembic import context
@@ -12,7 +12,9 @@ from src.db import Base
 from src.models import User  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", os.getenv("AQUALOG_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/aqualog"))
+config.set_main_option("sqlalchemy.url", os.getenv("AQUALOG_DATABASE_URL"))
+logging.basicConfig(level=logging.INFO)
+logging.info(f"Using database URL: {config.get_main_option('sqlalchemy.url')}")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

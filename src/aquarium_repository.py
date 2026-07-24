@@ -35,7 +35,9 @@ class AquariumRepository:
             .one_or_none()
         )
 
-    def create(self, owner_user_id: str, name: str, aquarium_type: str, volume_liters: float) -> Aquarium:
+    def create(
+        self, owner_user_id: str, name: str, aquarium_type: str, volume_liters: float
+    ) -> Aquarium:
         self._require_owner(owner_user_id)
         aquarium = Aquarium(
             owner_user_id=owner_user_id,

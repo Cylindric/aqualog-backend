@@ -96,4 +96,3 @@ def test_readiness_accepts_but_ignores_invalid_token(auth_settings):
 
     assert response.status_code == 200
     assert response.json()["data"]["status"] == "ready"
-

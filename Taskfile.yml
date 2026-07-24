@@ -3,9 +3,9 @@ version: '3'
 vars:
   ContainerName: aqualog-backend
   Version:
-    sh: poetry run cz version --project
+    sh: poetry run cz version --project || echo "0.0.0"
   MajorVersion:
-    sh: poetry run cz version --project --major
+    sh: poetry run cz version --project --major || echo "0"
 
 dotenv:
   - ../.env
@@ -16,7 +16,7 @@ tasks:
     cmds:
       - task --list
 
-  setup:
+  init:
     desc: Set up the project environment
     cmds:
       - cmd: ./tools/setup.sh
@@ -75,14 +75,37 @@ tasks:
 
   server:
     desc: Start the API server locally
+    env:
+      AQUALOG_DB_HOST: localhost
+      AQUALOG_DATABASE_URL: "postgresql://{{.AQUALOG_DB_USER}}:{{.AQUALOG_DB_PASSWORD}}@localhost:{{.AQUALOG_DB_PORT}}/{{.AQUALOG_DB_NAME}}"
     cmds:
       # - task: test
       # - task: coverage
-      # - cmd: env | grep AQUALOG
+      - cmd: env | sort | grep AQUALOG
       - cmd: poetry lock
       - cmd: poetry sync
-      - task: db-migrate
+      - cmd: poetry run alembic upgrade head
       - cmd: poetry run uvicorn src.app:create_app --reload --factory --host 0.0.0.0 --port 8001
+
+  lint:
+    desc: Lint the codebase with ruff
+    cmds:
+      - cmd: poetry run ruff check --fix .
+
+  format:
+    desc: Format the codebase with ruff
+    cmds:
+      - cmd: poetry run ruff format .
+
+  typecheck:
+    desc: Run mypy static type checking
+    cmds:
+      - cmd: poetry run mypy src
+
+  precommit-run:
+    desc: Run all pre-commit hooks against the full repo
+    cmds:
+      - cmd: poetry run pre-commit run --all-files
 
   db-migrate:
     desc: Run pending database migrations
@@ -122,7 +145,7 @@ tasks:
       - cmd: docker compose down --volumes --remove-orphans
       - cmd: rm -rf .data
       - cmd: rm -rf artifacts
-    
+
   clean-all:
     desc: Clean up all build artifacts, temporary files, and Docker images
     cmds:

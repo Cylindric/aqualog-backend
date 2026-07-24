@@ -42,9 +42,7 @@ def test_first_login_creates_user_and_second_login_reuses_same_user(
     engine = create_engine(test_db_url, future=True)
     with engine.connect() as connection:
         count = connection.execute(
-            text(
-                "SELECT COUNT(*) FROM users WHERE oauth_issuer = :iss AND oauth_subject = :sub"
-            ),
+            text("SELECT COUNT(*) FROM users WHERE oauth_issuer = :iss AND oauth_subject = :sub"),
             {
                 "iss": "https://auth.example.com/application/o/aqualog",
                 "sub": "persisted-user",

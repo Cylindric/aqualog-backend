@@ -44,7 +44,7 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
-          tags: |   
+          tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
@@ -98,7 +98,7 @@ jobs:
           IP_ADDRESS=$(echo $RESULT | jq -r '.droplets[0].networks.v4[0].ip_address')
           echo "Droplet IP address: $IP_ADDRESS"
           echo "DROPLET_IP=$IP_ADDRESS" >> $GITHUB_ENV
-          
+
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh

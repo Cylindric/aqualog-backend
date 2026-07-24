@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.db import reset_database
+from src.db import reset_database  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -23,8 +23,8 @@ def reset_db_state():
 @pytest.fixture
 def mock_rsa_keys():
     """Generate mock RSA keys for testing."""
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
     backend = default_backend()
     private_key = rsa.generate_private_key(
@@ -69,6 +69,7 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         aud: str = "test-client-id",
         exp_offset_seconds: int = 3600,
         issuer: str | None = None,
+        preferred_username: str | None = None,
     ) -> str:
         private_key = jwk.import_key(
             mock_rsa_keys["private"],
@@ -83,6 +84,8 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
             "exp": datetime.now(timezone.utc) + timedelta(seconds=exp_offset_seconds),
             "iat": datetime.now(timezone.utc),
         }
+        if preferred_username is not None:
+            claims["preferred_username"] = preferred_username
 
         return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 
@@ -114,4 +117,3 @@ def create_expired_token(mock_rsa_keys, mock_oidc_config):
         return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 
     return _create_token
-

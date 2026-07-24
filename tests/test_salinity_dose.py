@@ -26,7 +26,7 @@ def test_salinity_dose_returns_expected_quantity_in_success_envelope(
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
         mock_get_keys.return_value = mock_jwks
-        
+
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/calculate/dose/salinity",
@@ -55,7 +55,7 @@ def test_salinity_dose_allows_negative_quantity_when_target_below_current(
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
         mock_get_keys.return_value = mock_jwks
-        
+
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/calculate/dose/salinity",
@@ -81,7 +81,7 @@ def test_salinity_dose_missing_or_invalid_params_return_standard_error_envelope(
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
         mock_get_keys.return_value = mock_jwks
-        
+
         with TestClient(app) as client:
             missing_response = client.get(
                 "/api/v1/calculate/dose/salinity",
@@ -137,7 +137,7 @@ def test_salinity_dose_rejects_invalid_token(auth_settings, mock_jwks):
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
         mock_get_keys.return_value = mock_jwks
-        
+
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/calculate/dose/salinity",
@@ -152,4 +152,3 @@ def test_salinity_dose_rejects_invalid_token(auth_settings, mock_jwks):
     assert response.status_code == 401
     assert body["success"] is False
     assert body["error"]["code"] == "authentication_error"
-

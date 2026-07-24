@@ -60,17 +60,17 @@ Current state:
 
 ## Risks / Trade-offs
 
-**[Risk] Authentik unavailable → API cannot validate tokens**  
+**[Risk] Authentik unavailable → API cannot validate tokens**
 → Mitigation: Health endpoints remain accessible. Consider adding token validation result caching with short TTL for resilience.
 
-**[Risk] JWT validation adds latency to every request**  
+**[Risk] JWT validation adds latency to every request**
 → Mitigation: Cache JWKS keys. Token signature validation is fast (<5ms). Consider adding request-scoped token validation cache for repeat validations within a request lifecycle.
 
-**[Risk] Breaking change for existing API consumers**  
+**[Risk] Breaking change for existing API consumers**
 → Mitigation: Acceptable during v1 pre-release. Document in changelog. Health endpoints remain accessible for monitoring.
 
-**[Trade-off] No refresh token handling**  
+**[Trade-off] No refresh token handling**
 → Accept: Clients handle token refresh via OAuth2 flow. API only validates access tokens. Standard OAuth2 pattern.
 
-**[Trade-off] No user context extraction yet**  
+**[Trade-off] No user context extraction yet**
 → Accept: Initial implementation validates tokens only. User claims extraction (sub, email) is a future enhancement when we need user-scoped data.

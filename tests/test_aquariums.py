@@ -26,10 +26,13 @@ def test_aquarium_endpoints_require_authentication(auth_settings):
 
     with TestClient(app) as client:
         assert client.get("/api/v1/aquariums").status_code == 401
-        assert client.post(
-            "/api/v1/aquariums",
-            json={"name": "A", "type": "reef", "volume": {"value": 1, "unit": "L"}},
-        ).status_code == 401
+        assert (
+            client.post(
+                "/api/v1/aquariums",
+                json={"name": "A", "type": "reef", "volume": {"value": 1, "unit": "L"}},
+            ).status_code
+            == 401
+        )
 
 
 def test_aquarium_crud_happy_path(create_valid_token, auth_settings, mock_jwks):
@@ -60,7 +63,9 @@ def test_aquarium_crud_happy_path(create_valid_token, auth_settings, mock_jwks):
             assert len(items) == 1
             assert items[0]["id"] == aquarium_id
 
-            get_response = client.get(f"/api/v1/aquariums/{aquarium_id}", headers=_auth_header(token))
+            get_response = client.get(
+                f"/api/v1/aquariums/{aquarium_id}", headers=_auth_header(token)
+            )
             assert get_response.status_code == 200
             assert get_response.json()["data"]["id"] == aquarium_id
 
@@ -97,21 +102,30 @@ def test_aquarium_cross_user_access_is_not_found(create_valid_token, auth_settin
             )
             aquarium_id = create_response.json()["data"]["id"]
 
-            assert client.get(
-                f"/api/v1/aquariums/{aquarium_id}",
-                headers=_auth_header(other_token),
-            ).status_code == 404
+            assert (
+                client.get(
+                    f"/api/v1/aquariums/{aquarium_id}",
+                    headers=_auth_header(other_token),
+                ).status_code
+                == 404
+            )
 
-            assert client.patch(
-                f"/api/v1/aquariums/{aquarium_id}",
-                headers=_auth_header(other_token),
-                json={"name": "Stolen Tank"},
-            ).status_code == 404
+            assert (
+                client.patch(
+                    f"/api/v1/aquariums/{aquarium_id}",
+                    headers=_auth_header(other_token),
+                    json={"name": "Stolen Tank"},
+                ).status_code
+                == 404
+            )
 
-            assert client.delete(
-                f"/api/v1/aquariums/{aquarium_id}",
-                headers=_auth_header(other_token),
-            ).status_code == 404
+            assert (
+                client.delete(
+                    f"/api/v1/aquariums/{aquarium_id}",
+                    headers=_auth_header(other_token),
+                ).status_code
+                == 404
+            )
 
 
 def test_aquarium_validation_and_units(create_valid_token, auth_settings, mock_jwks):
@@ -196,12 +210,18 @@ def test_create_aquarium_logs_debug_context(create_valid_token, auth_settings, m
             response = client.post(
                 "/api/v1/aquariums",
                 headers=_auth_header(token),
-                json={"name": "Debug Tank", "type": "reef", "volume": {"value": 10.0, "unit": "gal_us"}},
+                json={
+                    "name": "Debug Tank",
+                    "type": "reef",
+                    "volume": {"value": 10.0, "unit": "gal_us"},
+                },
             )
 
     assert response.status_code == 201
     assert mock_logger.info.call_count >= 2
-    start_call = next(call for call in mock_logger.info.call_args_list if call.args[0] == "aquarium.create.start")
+    start_call = next(
+        call for call in mock_logger.info.call_args_list if call.args[0] == "aquarium.create.start"
+    )
     assert start_call.kwargs["extra"]["request_id"] == "req-aquarium"
     assert start_call.kwargs["extra"]["aquarium_name"] == "Debug Tank"
     assert start_call.kwargs["extra"]["aquarium_type"] == "reef"
@@ -210,8 +230,14 @@ def test_create_aquarium_logs_debug_context(create_valid_token, auth_settings, m
     assert start_call.kwargs["extra"]["volume_liters"] == pytest.approx(37.85411784)
     assert start_call.kwargs["extra"]["owner_user_id"]
 
-    success_call = next(call for call in mock_logger.info.call_args_list if call.args[0] == "aquarium.create.success")
+    success_call = next(
+        call
+        for call in mock_logger.info.call_args_list
+        if call.args[0] == "aquarium.create.success"
+    )
     assert success_call.kwargs["extra"]["request_id"] == "req-aquarium"
-    assert success_call.kwargs["extra"]["owner_user_id"] == start_call.kwargs["extra"]["owner_user_id"]
+    assert (
+        success_call.kwargs["extra"]["owner_user_id"] == start_call.kwargs["extra"]["owner_user_id"]
+    )
     assert success_call.kwargs["extra"]["aquarium_name"] == "Debug Tank"
     assert success_call.kwargs["extra"]["aquarium_id"]

@@ -43,3 +43,29 @@ def test_update_profile_changes_allowed_fields(tmp_path):
 
     assert updated.display_name == "Coral Keeper"
     assert updated.bio == "Mixed reef"
+
+
+def test_resolve_or_create_captures_username_on_creation(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+
+    user = repo.resolve_or_create("https://issuer.example.com", "sub-3", username="coral-keeper")
+
+    assert user.username == "coral-keeper"
+
+
+def test_resolve_or_create_allows_null_username(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+
+    user = repo.resolve_or_create("https://issuer.example.com", "sub-4")
+
+    assert user.username is None
+
+
+def test_resolve_or_create_does_not_overwrite_username_on_repeat_login(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+
+    first = repo.resolve_or_create("https://issuer.example.com", "sub-5", username="original-name")
+    second = repo.resolve_or_create("https://issuer.example.com", "sub-5", username="changed-name")
+
+    assert first.id == second.id
+    assert second.username == "original-name"

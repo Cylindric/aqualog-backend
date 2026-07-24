@@ -216,7 +216,9 @@ def build_aquarium_router() -> APIRouter:
             },
         )
 
-        return success_response(_to_payload(aquarium), request_id=request_id, status_code=status.HTTP_201_CREATED)
+        return success_response(
+            _to_payload(aquarium), request_id=request_id, status_code=status.HTTP_201_CREATED
+        )
 
     @router.patch("/{aquarium_id}", response_model=AquariumResponse)
     async def update_aquarium(

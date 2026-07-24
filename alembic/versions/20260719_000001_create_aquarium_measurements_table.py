@@ -7,9 +7,8 @@ Create Date: 2026-07-19 00:00:01
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "20260719_000001"
@@ -66,7 +65,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_aquarium_measurements_aquarium_id_measured_at", table_name="aquarium_measurements")
+    op.drop_index(
+        "ix_aquarium_measurements_aquarium_id_measured_at", table_name="aquarium_measurements"
+    )
     op.drop_index("ix_aquarium_measurements_measured_at", table_name="aquarium_measurements")
     op.drop_index("ix_aquarium_measurements_parameter", table_name="aquarium_measurements")
     op.drop_index("ix_aquarium_measurements_aquarium_id", table_name="aquarium_measurements")

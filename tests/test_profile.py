@@ -35,6 +35,26 @@ def test_get_my_profile_returns_current_user_profile(create_valid_token, auth_se
     assert body["request_id"] == "req-profile-get"
     assert body["data"]["id"]
     assert body["data"]["display_name"] is None
+    assert body["data"]["username"] is None
+
+
+def test_get_my_profile_includes_username_from_signup(create_valid_token, auth_settings, mock_jwks):
+    token = create_valid_token(
+        sub="profile-user-username", aud="test-client-id", preferred_username="coral-keeper"
+    )
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["data"]["username"] == "coral-keeper"
 
 
 def test_patch_my_profile_updates_allowed_fields(create_valid_token, auth_settings, mock_jwks):
@@ -68,6 +88,27 @@ def test_patch_my_profile_rejects_disallowed_fields(create_valid_token, auth_set
                 "/api/v1/me",
                 headers={"Authorization": f"Bearer {token}"},
                 json={"oauth_subject": "attempted-overwrite"},
+            )
+
+    body = response.json()
+    assert response.status_code == 422
+    assert body["success"] is False
+    assert body["error"]["code"] == "validation_error"
+
+
+def test_patch_my_profile_rejects_username_field(create_valid_token, auth_settings, mock_jwks):
+    token = create_valid_token(
+        sub="profile-user-4", aud="test-client-id", preferred_username="original-name"
+    )
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            response = client.patch(
+                "/api/v1/me",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"username": "attempted-overwrite"},
             )
 
     body = response.json()
