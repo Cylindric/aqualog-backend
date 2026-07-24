@@ -1,0 +1,36 @@
+services:
+
+  mailproxy:
+    image: aqualog-mail-proxy:latest
+    env_file:
+      - .env
+
+  backenddb:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: "aqualog"
+      POSTGRES_USER: "aqualog"
+      POSTGRES_PASSWORD: "aqualog"
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aqualog -d aqualog"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: aqualog-backend:latest
+    ports:
+      - "9000:8000"
+    env_file:
+      - .env
+    environment:
+      - AQUALOG_DB_HOST=backenddb
+      - AQUALOG_DB_NAME=aqualog
+      - AQUALOG_DB_USER=aqualog
+      - AQUALOG_DB_PASSWORD=aqualog
+      - AQUALOG_DB_PORT=5432
+    depends_on:
+      backenddb:
+        condition: service_healthy

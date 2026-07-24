@@ -24,10 +24,19 @@ tasks:
   build:
     desc: Build the project
     cmds:
-      - cmd: poetry lock
-      - cmd: cd mail_proxy && docker build -t aqualog-mail-proxy:latest .
+      - task: backend:build
+      - task: mail:build
+
+  backend:build:
+    desc: Build the project
+    cmds:
       - cmd: docker build -t {{.ContainerName}}:latest .
       - cmd: docker image tag {{.ContainerName}}:latest {{.ContainerName}}:{{.Version}}
+
+  mail:build:
+    desc: Build the mail proxy Docker image
+    cmds:
+      - cmd: cd mail_proxy && docker build -t aqualog-mail-proxy:latest .
 
   publish:
     desc: Publish the docker image to the registry
@@ -38,14 +47,20 @@ tasks:
   scan:
     desc: Run Trivy scan for vulnerabilities
     cmds:
+      - task: backend:scan
+      - task: mail:scan
+
+  backend:scan:
+    desc: Run Trivy scan for vulnerabilities
+    cmds:
       - cmd: |
           docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /var/cache/trivy:/tmp \
-          -v ./.data/trivy:/data \
+          -v ./.build/trivy:/data \
           aquasec/trivy image \
           --no-progress \
-          --format json --output /data/scan-{{.Version}}.json \
+          --format json --output /data/backend-{{.Version}}.json \
           --scanners vuln,secret \
           --image-config-scanners misconfig,secret \
           --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
@@ -53,19 +68,42 @@ tasks:
           {{.ContainerName}}:{{.Version}}
       - cmd: |
           docker run --rm \
-          -v ./.data/trivy:/data \
+          -v ./.build/trivy:/data \
           aquasec/trivy convert \
           --severity MEDIUM,HIGH,CRITICAL \
-          --format table --output /data/scan-{{.Version}}.txt \
-          /data/scan-{{.Version}}.json
+          --format table --output /data/backend-{{.Version}}.txt \
+          /data/backend-{{.Version}}.json
+      - task: mail:scan
+
+  mail:scan:
+    desc: Run Trivy scan for vulnerabilities
+    cmds:
+      - cmd: |
+          docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v /var/cache/trivy:/tmp \
+          -v ./.build/trivy:/data \
+          aquasec/trivy image \
+          --no-progress \
+          --format json --output /data/mail-proxy-{{.Version}}.json \
+          --scanners vuln,secret \
+          --image-config-scanners misconfig,secret \
+          --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+          --cache-dir /tmp/trivy \
+          aqualog-mail-proxy:latest
+      - cmd: |
+          docker run --rm \
+          -v ./.build/trivy:/data \
+          aquasec/trivy convert \
+          --severity MEDIUM,HIGH,CRITICAL \
+          --format table --output /data/mail-proxy-{{.Version}}.txt \
+          /data/mail-proxy-{{.Version}}.json
 
   up:
     desc: Build and start the API service with docker-compose
     interactive: true
     silent: true
     cmds:
-      - cmd: mkdir -p ./.data/pgadmin4
-      - cmd: sudo chown -R 5050:5050 ./.data/pgadmin4
       - cmd: docker compose up
 
   down:
@@ -77,11 +115,7 @@ tasks:
     desc: Start the API server locally
     env:
       AQUALOG_DB_HOST: localhost
-      AQUALOG_DATABASE_URL: "postgresql://{{.AQUALOG_DB_USER}}:{{.AQUALOG_DB_PASSWORD}}@localhost:{{.AQUALOG_DB_PORT}}/{{.AQUALOG_DB_NAME}}"
     cmds:
-      # - task: test
-      # - task: coverage
-      - cmd: env | sort | grep AQUALOG
       - cmd: poetry lock
       - cmd: poetry sync
       - cmd: poetry run alembic upgrade head
@@ -154,15 +188,20 @@ tasks:
       - cmd: rm -rf .env
       - cmd: rm -rf .venv
 
+  run:
+    desc: Open a bash shell in the backend container
+    cmds:
+      - cmd: docker run --rm -it {{.ContainerName}}:{{.Version}}
+
   bash:
     desc: Open a bash shell in the backend container
     cmds:
-      - cmd: docker run --network=backend_default --env-file .env --rm -it {{.ContainerName}}:{{.Version}} bash
+      - cmd: docker run --rm -it {{.ContainerName}}:latest bash
 
-  run:
-    desc: Run the backend container
+  mail:bash:
+    desc: Open a bash shell in the mail proxy container
     cmds:
-      - cmd: docker run --network=backend_default --env-file .env --rm -it {{.ContainerName}}:{{.Version}}
+      - cmd: docker run --rm -it aqualog-mail-proxy:latest ash
 
   token:
     desc: Generate a new Authentik token for API authentication
