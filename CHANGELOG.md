@@ -64,6 +64,45 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.7.0 (2026-07-24)
+
+### Feat
+
+- additional delete endpoint for params
+- add phosphate measurements
+- add mail smtp-to-api proxy
+- add measurement endpoints
+- add user persistence
+- add database storage backend
+- update tooling
+- standardise dependencies
+
+### Fix
+
+- first pass at linting
+- improve startup process for dev
+- bump obsolete httpx and authlib modules
+- small fixes to test scripts
+- pipeline error in mail relay builder
+- bump fastapi from 0.139.1 to 0.139.2
+- update build pipeline with new scripts
+- increase logging capability
+- add favicon
+- move docs to versioned url
+- updated build
+- updated build
+- updated build
+- updated build
+- updated build
+- testing build pipeline
+- initial schema for aquariums
+- some naming inconsistencies
+- update pytest
+- bump dependencies
+- dependency cleanup
+- bump uvicorn from 0.35.0 to 0.51.0
+- bump pytest-html from 4.1.1 to 4.2.0
+
 ## v0.6.0 (2026-07-22)
 
 ### Feat
