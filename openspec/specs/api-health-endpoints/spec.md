@@ -49,4 +49,3 @@ The system SHALL NOT require authentication for liveness and readiness endpoints
 #### Scenario: Health endpoints do not validate OAuth2 tokens
 - **WHEN** health endpoint requests are processed
 - **THEN** no OAuth2 token validation is performed regardless of Authorization header presence
-

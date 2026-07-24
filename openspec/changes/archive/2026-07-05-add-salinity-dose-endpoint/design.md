@@ -57,4 +57,3 @@ The service already exposes versioned API routes with standardized response enve
 - Rollback strategy: remove route registration if needed; no data migration required.
 
 ## Open Questions
-

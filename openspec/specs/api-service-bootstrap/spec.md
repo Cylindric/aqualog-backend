@@ -49,4 +49,3 @@ The system SHALL integrate OAuth2 authentication validation into the API request
 #### Scenario: Authentication failures prevent endpoint execution
 - **WHEN** token validation fails for a protected endpoint request
 - **THEN** the system returns an authentication error without executing the endpoint handler
-

@@ -74,4 +74,3 @@ The system MUST load OAuth2 provider configuration at startup and MUST fail fast
 #### Scenario: Startup succeeds with valid OAuth2 configuration
 - **WHEN** all required OAuth2 configuration values are present and valid
 - **THEN** the application completes startup and token validation is available
-
