@@ -64,6 +64,15 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.7.1 (2026-07-24)
+
+### Fix
+
+- update container with security updates
+- update mail-relay container with security updates
+- refactor DB credentials to separate fields
+- make the DB password a SecretStr to prevent log leakage.
+
 ## v0.7.0 (2026-07-24)
 
 ### Feat
