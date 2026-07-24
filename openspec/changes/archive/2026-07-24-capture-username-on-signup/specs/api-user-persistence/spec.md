@@ -1,9 +1,4 @@
-# api-user-persistence Specification
-
-## Purpose
-Define durable storage requirements for application user records and their profile data.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Authenticated identities are mapped to persisted users
 The system SHALL persist a local user record for each authenticated OAuth identity and SHALL use that persisted record for subsequent authenticated requests. When creating a new local user record, the system SHALL capture the OAuth token's `preferred_username` claim, if present, as the persisted user's username.

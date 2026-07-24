@@ -1,9 +1,4 @@
-# api-user-profile Specification
-
-## Purpose
-Define authenticated API behavior for viewing and updating the current user's profile.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Authenticated user can read own profile
 The system SHALL provide an authenticated endpoint that returns the profile of the current authenticated user, including the username captured at signup.
