@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.8.0 (2026-07-24)
+
+### Feat
+
+- add app_version to API
+
 ## v0.7.1 (2026-07-24)
 
 ### Fix
