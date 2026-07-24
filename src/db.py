@@ -28,7 +28,7 @@ def _normalize_database_url(url: str) -> str:
 def get_database_url(settings: Settings) -> str:
     if settings.app_env == "test" and settings.test_database_url:
         return settings.test_database_url
-    return settings.database_url
+    return settings.database_url.get_secret_value()
 
 
 def configure_database(settings: Settings) -> None:

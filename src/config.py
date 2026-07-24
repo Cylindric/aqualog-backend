@@ -1,4 +1,4 @@
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     oauth_issuer_url: str | None = None
     oauth_audience: str | None = None
     oauth_client_id: str | None = None
-    database_url: str = "sqlite+pysqlite:///:memory:"
+    database_url: SecretStr = SecretStr("sqlite+pysqlite:///:memory:")
     test_database_url: str = "sqlite+pysqlite:///:memory:"
 
     model_config = SettingsConfigDict(env_prefix="AQUALOG_", extra="ignore")

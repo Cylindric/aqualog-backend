@@ -79,9 +79,6 @@ tasks:
       AQUALOG_DB_HOST: localhost
       AQUALOG_DATABASE_URL: "postgresql://{{.AQUALOG_DB_USER}}:{{.AQUALOG_DB_PASSWORD}}@localhost:{{.AQUALOG_DB_PORT}}/{{.AQUALOG_DB_NAME}}"
     cmds:
-      # - task: test
-      # - task: coverage
-      - cmd: env | sort | grep AQUALOG
       - cmd: poetry lock
       - cmd: poetry sync
       - cmd: poetry run alembic upgrade head
