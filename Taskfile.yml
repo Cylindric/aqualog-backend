@@ -119,7 +119,9 @@ tasks:
       - cmd: poetry lock
       - cmd: poetry sync
       - cmd: poetry run alembic upgrade head
-      - cmd: poetry run uvicorn src.app:create_app --reload --factory --host 0.0.0.0 --port 8001
+      - cmd: |
+          export AQUALOG_APP_VERSION=$(poetry run cz version -p)
+          poetry run uvicorn src.app:create_app --reload --factory --host 0.0.0.0 --port 8001
 
   lint:
     desc: Lint the codebase with ruff

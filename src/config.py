@@ -5,6 +5,7 @@ from sqlalchemy.engine import URL
 
 class Settings(BaseSettings):
     app_env: str
+    app_version: str = "0.0.0"
     api_version: str = "v1"
     log_level: str = "INFO"
     test_reports_dir: str = "artifacts/tests"
