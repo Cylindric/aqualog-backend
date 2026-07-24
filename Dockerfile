@@ -8,6 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt update && apt install -y --no-install-recommends curl && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml poetry.lock ./
 RUN pip install --no-cache-dir poetry && \
     poetry config virtualenvs.create false && \
@@ -19,5 +23,8 @@ COPY alembic /app/alembic
 COPY src ./src
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/api/v1/ready || exit 1
 
 CMD ["/app/entrypoint.sh"]

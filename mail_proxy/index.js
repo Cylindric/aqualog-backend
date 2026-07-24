@@ -74,3 +74,19 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`SMTP-to-API Gateway running inside container on port ${PORT}`);
     console.log(`Forwarding targets upstream to: ${API_URL}`);
 });
+
+// Node only installs default SIGINT/SIGTERM handlers when attached to a TTY, and as
+// PID 1 in a container there's no kernel default action either - without these, Ctrl+C
+// and `docker stop` are silently ignored until Docker force-kills the process.
+function shutdown(signal) {
+    console.log(`Received ${signal}, closing SMTP-to-API Gateway...`);
+    server.close(() => {
+        console.log('SMTP server closed.');
+        process.exit(0);
+    });
+    // Force exit if open connections keep the server from closing gracefully.
+    setTimeout(() => process.exit(1), 5000).unref();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

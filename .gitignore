@@ -11,6 +11,7 @@ coverage.xml
 node_modules/
 
 # Application Test Data
+.build
 .data
 .env
 aqualog_api.egg-info
