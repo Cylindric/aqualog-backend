@@ -26,9 +26,10 @@ def _normalize_database_url(url: str) -> str:
 
 
 def get_database_url(settings: Settings) -> str:
-    if settings.app_env == "test" and settings.test_database_url:
+    uses_test_db = settings.app_env == "test" or "test_database_url" in settings.model_fields_set
+    if uses_test_db and settings.test_database_url:
         return settings.test_database_url
-    return settings.database_url.get_secret_value()
+    return settings.database_url
 
 
 def configure_database(settings: Settings) -> None:

@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Resolve AQUALOG_DATA_URL nested variables
-export AQUALOG_DATABASE_URL=$(eval echo "$AQUALOG_DATABASE_URL")
-
 # List all Env vars starting with AQUALOG_
 # env | grep ^AQUALOG_
 

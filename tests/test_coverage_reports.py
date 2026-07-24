@@ -38,7 +38,13 @@ def test_coverage_route_is_not_exposed_outside_dev_or_test(tmp_path: Path):
     reports_dir.mkdir(parents=True, exist_ok=True)
     (reports_dir / "index.html").write_text("<html><body>hidden</body></html>", encoding="utf-8")
 
-    app = create_app(Settings(app_env="prod", coverage_reports_dir=str(reports_dir)))
+    app = create_app(
+        Settings(
+            app_env="prod",
+            coverage_reports_dir=str(reports_dir),
+            test_database_url=f"sqlite+pysqlite:///{tmp_path}/coverage-gate.db",
+        )
+    )
 
     with TestClient(app) as client:
         response = client.get("/coverage")
