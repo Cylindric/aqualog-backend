@@ -17,6 +17,10 @@ WORKDIR /app
 
 # Copy dependency mappings first to utilise Docker build caching
 COPY pyproject.toml poetry.lock ./
+
+# Read the current version from pyproject.toml and write it to a file for later use
+RUN python -c "import tomllib; from pathlib import Path; version = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version']; Path('/app/.container-env').write_text(f'AQUALOG_APP_VERSION={version}\\n', encoding='utf-8')"
+
 RUN pip install --no-cache-dir poetry && \
     poetry config virtualenvs.create false && \
     poetry install --only main --no-interaction --no-ansi
