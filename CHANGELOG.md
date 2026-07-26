@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.8.2 (2026-07-26)
+
+### Fix
+
+- bump httpx2 from 2.7.0 to 2.9.1
+
 ## v0.8.1 (2026-07-26)
 
 ### Fix
