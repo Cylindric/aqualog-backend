@@ -55,8 +55,18 @@ Example with overrides:
 - Canonical measurement endpoints are parameterized by path:
   - `POST /api/v1/aquariums/{aquarium_id}/measurements/{parameter}`
   - `GET /api/v1/aquariums/{aquarium_id}/measurements/{parameter}`
-- Supported `{parameter}` values are `salinity` and `phosphate`.
+- Supported `{parameter}` values are `salinity`, `phosphate`, and `temperature`.
 - Mixed-case `{parameter}` aliases are accepted and normalized to lowercase before processing.
+
+## Parameter Threshold Endpoint Contract
+
+- Per-aquarium `target`/`min`/`max` thresholds are parameterized by path:
+  - `PUT /api/v1/aquariums/{aquarium_id}/thresholds/{parameter}`
+  - `GET /api/v1/aquariums/{aquarium_id}/thresholds/{parameter}`
+- Supported `{parameter}` values are `salinity`, `phosphate`, and `temperature`.
+- `target`, `min`, and `max` are each individually optional; values are validated against `min <= target <= max` and the same per-parameter sanity ranges used for measurements.
+- Thresholds are stored and returned in the parameter's canonical unit (`ppt` for salinity, `ppm` for phosphate, `celsius` for temperature).
+- A parameter with no thresholds configured returns `200` with `null` fields rather than `404`.
 
 ## Response Envelopes
 

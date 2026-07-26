@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
 
 from src.aquarium_measurements import build_aquarium_measurement_router
+from src.aquarium_parameter_thresholds import build_aquarium_parameter_threshold_router
 from src.aquariums import build_aquarium_router
 from src.calculation import build_calculation_router
 from src.config import Settings, load_settings
@@ -146,6 +147,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_profile_router(), prefix=versioned_prefix)
     app.include_router(build_aquarium_router(), prefix=versioned_prefix)
     app.include_router(build_aquarium_measurement_router(), prefix=versioned_prefix)
+    app.include_router(build_aquarium_parameter_threshold_router(), prefix=versioned_prefix)
 
     @app.get("/")
     async def root(request: Request):

@@ -138,7 +138,9 @@ def _duplicate_name_http_error() -> HTTPException:
 def build_aquarium_router() -> APIRouter:
     router = APIRouter(prefix="/aquariums", tags=["aquariums"])
 
-    @router.get("", response_model=AquariumListResponse)
+    @router.get(
+        "", response_model=AquariumListResponse, summary="List aquariums for the current user"
+    )
     async def list_aquariums(
         request: Request,
         current_user: AuthenticatedUser = Depends(get_current_user),

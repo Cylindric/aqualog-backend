@@ -19,14 +19,18 @@ from src.user_service import AuthenticatedUser
 
 SUPPORTED_SALINITY_UNITS = {"ppt", "sg"}
 SUPPORTED_PHOSPHATE_UNITS = {"ppm"}
+SUPPORTED_TEMPERATURE_UNITS = {"celsius", "fahrenheit"}
 SALINITY_PARAMETER = "salinity"
 PHOSPHATE_PARAMETER = "phosphate"
-SUPPORTED_PARAMETERS = {SALINITY_PARAMETER, PHOSPHATE_PARAMETER}
+TEMPERATURE_PARAMETER = "temperature"
+SUPPORTED_PARAMETERS = {SALINITY_PARAMETER, PHOSPHATE_PARAMETER, TEMPERATURE_PARAMETER}
 SG_TO_PPT_FACTOR = 1325.76  # conversion factor valid at a typical reef aquarium temperature of 25°C
 MAX_SALINITY_PPT = 100.0
 MIN_SALINITY_SG = 1.0
 MAX_SALINITY_SG = 1.04
 MAX_PHOSPHATE_PPM = 100.0
+MIN_TEMPERATURE_CELSIUS = 0.0
+MAX_TEMPERATURE_CELSIUS = 45.0
 
 
 class CreateSalinityMeasurementRequest(BaseModel):
@@ -122,6 +126,16 @@ def _to_ppt(value: float, unit: str) -> float:
     return (value - 1.0) * SG_TO_PPT_FACTOR
 
 
+def fahrenheit_to_celsius(value: float) -> float:
+    return (value - 32.0) * 5.0 / 9.0
+
+
+def _to_celsius(value: float, unit: str) -> float:
+    if unit == "celsius":
+        return value
+    return fahrenheit_to_celsius(value)
+
+
 def _normalize_timestamp(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(microsecond=0)
 
@@ -129,6 +143,8 @@ def _normalize_timestamp(value: datetime) -> datetime:
 def _canonicalize_measurement(parameter: str, value: float, unit: str) -> tuple[float, str]:
     if parameter == SALINITY_PARAMETER:
         return _to_ppt(value, unit), "ppt"
+    if parameter == TEMPERATURE_PARAMETER:
+        return _to_celsius(value, unit), "celsius"
     return value, "ppm"
 
 
@@ -151,6 +167,20 @@ def _validate_measurement_payload(parameter: str, value: float, unit: str) -> No
             )
         return
 
+    if parameter == TEMPERATURE_PARAMETER:
+        if unit not in SUPPORTED_TEMPERATURE_UNITS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Temperature unit must be one of: celsius, fahrenheit",
+            )
+        canonical_value = _to_celsius(value, unit)
+        if not (MIN_TEMPERATURE_CELSIUS <= canonical_value <= MAX_TEMPERATURE_CELSIUS):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Temperature value must be between 0 and 45 degrees Celsius",
+            )
+        return
+
     if unit not in SUPPORTED_PHOSPHATE_UNITS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -168,7 +198,7 @@ def _normalize_parameter(value: str) -> str:
     if normalized not in SUPPORTED_PARAMETERS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Parameter must be one of: salinity, phosphate",
+            detail="Parameter must be one of: salinity, phosphate, temperature",
         )
     return normalized
 

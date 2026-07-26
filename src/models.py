@@ -71,6 +71,39 @@ class Aquarium(Base):
     )
 
 
+class AquariumParameterThreshold(Base):
+    __tablename__ = "aquarium_parameter_thresholds"
+    __table_args__ = (
+        UniqueConstraint(
+            "aquarium_id",
+            "parameter",
+            name="uq_aquarium_parameter_thresholds_aquarium_parameter",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    aquarium_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("aquariums.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    parameter: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    target: Mapped[float | None] = mapped_column(Float, nullable=True)
+    min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_now,
+        onupdate=_utc_now,
+    )
+
+
 class AquariumMeasurement(Base):
     __tablename__ = "aquarium_measurements"
     __table_args__ = (
