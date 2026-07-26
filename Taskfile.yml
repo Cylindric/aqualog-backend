@@ -24,8 +24,9 @@ tasks:
   build:
     desc: Build the project
     cmds:
+      - cmd: poetry lock
       - task: backend:build
-      - task: mail:build
+      # - task: mail:build
 
   backend:build:
     desc: Build the project
@@ -198,7 +199,7 @@ tasks:
   bash:
     desc: Open a bash shell in the backend container
     cmds:
-      - cmd: docker run --rm -it {{.ContainerName}}:latest bash
+      - cmd: docker run --rm --user "0:0" -it {{.ContainerName}}:latest bash
 
   mail:bash:
     desc: Open a bash shell in the mail proxy container
