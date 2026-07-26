@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.8.1 (2026-07-26)
+
+### Fix
+
+- decouple auth issuer from discovery URL
+
 ## v0.8.0 (2026-07-24)
 
 ### Feat
