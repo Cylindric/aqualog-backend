@@ -208,5 +208,6 @@ tasks:
   token:
     desc: Generate a new Authentik token for API authentication
     silent: true
+    dir: ./tools
     cmds:
-      - cmd: ./tools/get_token-dev.sh
+      - cmd: ./get_token-dev.sh

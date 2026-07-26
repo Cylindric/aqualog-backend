@@ -42,11 +42,13 @@ async def get_jwks_keys(settings: Settings) -> dict[str, Any]:
     try:
         # Fetch OIDC discovery document
         async with httpx2.AsyncClient() as client:
-            # Ensure issuer URL ends without trailing slash for discovery
-            if settings.oauth_issuer_url is None:
+            # Discovery may need a different (e.g. internal-network) URL than the
+            # issuer used for token validation, so fall back to oauth_issuer_url
+            # only when oauth_discovery_url isn't explicitly configured.
+            discovery_base = settings.oauth_discovery_url or settings.oauth_issuer_url
+            if discovery_base is None:
                 raise ValueError("OAuth issuer URL must be configured")
-            issuer = settings.oauth_issuer_url.rstrip("/")
-            discovery_url = f"{issuer}/.well-known/openid-configuration"
+            discovery_url = f"{discovery_base.rstrip('/')}/.well-known/openid-configuration"
 
             logger.debug(f"Fetching OIDC discovery from {discovery_url}")
             discovery_response = await client.get(discovery_url, timeout=10.0)

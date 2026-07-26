@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     test_reports_dir: str = "artifacts/tests"
     coverage_reports_dir: str = "artifacts/coverage"
     oauth_issuer_url: str | None = None
+    oauth_discovery_url: str | None = None
     oauth_audience: str | None = None
     oauth_client_id: str | None = None
     db_host: str = "localhost"
