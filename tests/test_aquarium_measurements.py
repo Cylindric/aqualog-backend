@@ -271,6 +271,110 @@ def test_measurement_create_phosphate_validation_and_duplicate_errors(
             assert duplicate.status_code == 409
 
 
+def test_temperature_measurement_create_list_happy_path(
+    create_valid_token, auth_settings, mock_jwks
+):
+    token = create_valid_token(sub="temperature-owner", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            create_response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={
+                    "unit": "fahrenheit",
+                    "value": 98.6,
+                    "measured_at": "2026-07-01T12:00:00.987654Z",
+                },
+            )
+            assert create_response.status_code == 201
+            created = create_response.json()["data"]
+            assert created["parameter"] == "temperature"
+            assert created["unit"] == "celsius"
+            assert created["value"] == pytest.approx(37.0)
+            assert created["raw_unit"] == "fahrenheit"
+            assert created["raw_value"] == pytest.approx(98.6)
+            assert created["measured_at"].endswith("+00:00")
+            assert "." not in created["measured_at"]
+
+            second_response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={"unit": "celsius", "value": 25.5, "measured_at": "2026-07-01T12:05:00Z"},
+            )
+            assert second_response.status_code == 201
+
+            list_response = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+            )
+            assert list_response.status_code == 200
+            payload = list_response.json()
+            assert [item["measured_at"] for item in payload["data"]] == [
+                "2026-07-01T12:00:00+00:00",
+                "2026-07-01T12:05:00+00:00",
+            ]
+
+
+def test_temperature_measurement_validation_and_duplicate_errors(
+    create_valid_token, auth_settings, mock_jwks
+):
+    token = create_valid_token(sub="temperature-validator", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            unsupported_unit = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={"unit": "kelvin", "value": 298.0, "measured_at": "2026-07-01T12:00:00Z"},
+            )
+            assert unsupported_unit.status_code == 422
+
+            out_of_range = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={"unit": "celsius", "value": 50.0, "measured_at": "2026-07-01T12:00:00Z"},
+            )
+            assert out_of_range.status_code == 422
+
+            missing_field = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={"unit": "celsius", "value": 25.0},
+            )
+            assert missing_field.status_code == 422
+
+            created = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                headers=_auth_header(token),
+                json={
+                    "unit": "celsius",
+                    "value": 25.0,
+                    "measured_at": "2026-07-01T12:00:00.950000Z",
+                },
+            )
+            assert created.status_code == 201
+
+            duplicate = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/TEMPERATURE",
+                headers=_auth_header(token),
+                json={
+                    "unit": "celsius",
+                    "value": 26.0,
+                    "measured_at": "2026-07-01T12:00:00.100000Z",
+                },
+            )
+            assert duplicate.status_code == 409
+
+
 def test_measurement_history_path_parameter_returns_selected_parameter_only(
     create_valid_token,
     auth_settings,
@@ -338,14 +442,14 @@ def test_measurement_routes_reject_unsupported_path_parameter(
             aquarium_id = _create_aquarium(client, token)
 
             unsupported_create = client.post(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                f"/api/v1/aquariums/{aquarium_id}/measurements/nitrate",
                 headers=_auth_header(token),
-                json={"unit": "c", "value": 25.0, "measured_at": "2026-07-01T12:00:00Z"},
+                json={"unit": "ppm", "value": 25.0, "measured_at": "2026-07-01T12:00:00Z"},
             )
             assert unsupported_create.status_code == 422
 
             unsupported_get = client.get(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/temperature",
+                f"/api/v1/aquariums/{aquarium_id}/measurements/nitrate",
                 headers=_auth_header(token),
             )
             assert unsupported_get.status_code == 422

@@ -24,6 +24,7 @@ tasks:
   build:
     desc: Build the project
     cmds:
+      - cmd: poetry lock
       - task: backend:build
       - task: mail:build
 
@@ -193,12 +194,12 @@ tasks:
   run:
     desc: Open a bash shell in the backend container
     cmds:
-      - cmd: docker run --rm -it {{.ContainerName}}:{{.Version}}
+      - cmd: docker run -e AQUALOG_DB_HOST=host.docker.internal --rm -it {{.ContainerName}}:{{.Version}}
 
   bash:
     desc: Open a bash shell in the backend container
     cmds:
-      - cmd: docker run --rm -it {{.ContainerName}}:latest bash
+      - cmd: docker run --rm --user "0:0" -it {{.ContainerName}}:latest bash
 
   mail:bash:
     desc: Open a bash shell in the mail proxy container

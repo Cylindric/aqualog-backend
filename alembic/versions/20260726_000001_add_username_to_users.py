@@ -1,6 +1,6 @@
 """add_username_to_users
 
-Revision ID: 87c03590a965
+Revision ID: 20260726_000001
 Revises: 20260719_000001
 Create Date: 2026-07-24 18:20:18.036612
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "87c03590a965"
+revision: str = "20260726_000001"
 down_revision: Union[str, Sequence[str], None] = "20260719_000001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
