@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from logging.config import dictConfig
@@ -102,9 +103,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        init_database(settings)
+        try:
+            init_database(settings)
+        except Exception:
+            logger.critical(
+                "Database initialization failed; aborting startup.", exc_info=True
+            )
+            os._exit(1)
         app.state.readiness.is_ready = True
         yield
+        logger.info("Shutting down Aqualog Backend API...")
 
     app = FastAPI(
         title="Aqualog Backend API",
