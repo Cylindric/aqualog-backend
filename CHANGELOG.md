@@ -64,6 +64,18 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.9.0 (2026-07-27)
+
+### Feat
+
+- parameter thresholds
+
+### Fix
+
+- cleaner handling of database connection errors
+- dockerfile poetry broken, switching to requirements.txt
+- poetry container
+
 ## v0.8.2 (2026-07-26)
 
 ### Fix
