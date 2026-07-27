@@ -134,7 +134,7 @@ def test_unsupported_threshold_parameter_is_rejected(create_valid_token, auth_se
             aquarium_id = _create_aquarium(client, token)
 
             response = client.put(
-                f"/api/v1/aquariums/{aquarium_id}/thresholds/nitrate",
+                f"/api/v1/aquariums/{aquarium_id}/thresholds/iron",
                 headers=_auth_header(token),
                 json={"target": 5.0},
             )
@@ -196,6 +196,13 @@ def test_threshold_ordering_validation_is_rejected(create_valid_token, auth_sett
         ("salinity", {"target": 150.0}),
         ("phosphate", {"target": 150.0}),
         ("temperature", {"target": 50.0}),
+        ("calcium", {"target": 1200.0}),
+        ("ammonia", {"target": 60.0}),
+        ("nitrite", {"target": 60.0}),
+        ("nitrate", {"target": 600.0}),
+        ("ph", {"target": 15.0}),
+        ("alkalinity", {"target": 35.0}),
+        ("magnesium", {"target": 2500.0}),
     ],
 )
 def test_out_of_range_threshold_values_are_rejected(
@@ -274,3 +281,46 @@ def test_setting_thresholds_again_replaces_previous_values(
                 headers=_auth_header(token),
             )
             assert get_response.json()["data"]["target"] == 0.08
+
+
+@pytest.mark.parametrize(
+    ("parameter", "unit", "target"),
+    [
+        ("calcium", "ppm", 420.0),
+        ("ammonia", "mg/L", 0.1),
+        ("nitrite", "ppm", 0.1),
+        ("nitrate", "ppm", 10.0),
+        ("ph", "pH", 8.2),
+        ("alkalinity", "dKH", 9.5),
+        ("magnesium", "ppm", 1300.0),
+    ],
+)
+def test_new_parameter_thresholds_set_and_get(
+    create_valid_token, auth_settings, mock_jwks, parameter, unit, target
+):
+    token = create_valid_token(sub=f"threshold-{parameter}", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            set_response = client.put(
+                f"/api/v1/aquariums/{aquarium_id}/thresholds/{parameter}",
+                headers=_auth_header(token),
+                json={"target": target},
+            )
+            assert set_response.status_code == 200
+            data = set_response.json()["data"]
+            assert data["parameter"] == parameter
+            assert data["target"] == target
+            assert data["unit"] == unit
+
+            get_response = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/thresholds/{parameter}",
+                headers=_auth_header(token),
+            )
+            assert get_response.status_code == 200
+            assert get_response.json()["data"]["target"] == target
+            assert get_response.json()["data"]["unit"] == unit

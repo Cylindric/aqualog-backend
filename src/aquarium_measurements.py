@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
@@ -20,10 +22,25 @@ from src.user_service import AuthenticatedUser
 SUPPORTED_SALINITY_UNITS = {"ppt", "sg"}
 SUPPORTED_PHOSPHATE_UNITS = {"ppm"}
 SUPPORTED_TEMPERATURE_UNITS = {"celsius", "fahrenheit"}
+SUPPORTED_CALCIUM_UNITS = {"ppm"}
+SUPPORTED_AMMONIA_UNITS = {"mg/l"}
+SUPPORTED_NITRITE_UNITS = {"ppm"}
+SUPPORTED_NITRATE_UNITS = {"ppm"}
+SUPPORTED_PH_UNITS = {"ph"}
+SUPPORTED_ALKALINITY_UNITS = {"dkh"}
+SUPPORTED_MAGNESIUM_UNITS = {"ppm"}
+
 SALINITY_PARAMETER = "salinity"
 PHOSPHATE_PARAMETER = "phosphate"
 TEMPERATURE_PARAMETER = "temperature"
-SUPPORTED_PARAMETERS = {SALINITY_PARAMETER, PHOSPHATE_PARAMETER, TEMPERATURE_PARAMETER}
+CALCIUM_PARAMETER = "calcium"
+AMMONIA_PARAMETER = "ammonia"
+NITRITE_PARAMETER = "nitrite"
+NITRATE_PARAMETER = "nitrate"
+PH_PARAMETER = "ph"
+ALKALINITY_PARAMETER = "alkalinity"
+MAGNESIUM_PARAMETER = "magnesium"
+
 SG_TO_PPT_FACTOR = 1325.76  # conversion factor valid at a typical reef aquarium temperature of 25°C
 MAX_SALINITY_PPT = 100.0
 MIN_SALINITY_SG = 1.0
@@ -31,41 +48,20 @@ MAX_SALINITY_SG = 1.04
 MAX_PHOSPHATE_PPM = 100.0
 MIN_TEMPERATURE_CELSIUS = 0.0
 MAX_TEMPERATURE_CELSIUS = 45.0
-
-
-class CreateSalinityMeasurementRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    unit: str
-    value: float
-    measured_at: datetime
-
-    @field_validator("unit")
-    @classmethod
-    def validate_unit(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in SUPPORTED_SALINITY_UNITS:
-            raise ValueError("Salinity unit must be one of: ppt, sg")
-        return normalized
-
-    @field_validator("value")
-    @classmethod
-    def validate_value(cls, value: float, info) -> float:
-        unit = (info.data.get("unit") or "").lower()
-        if value <= 0:
-            raise ValueError("Salinity value must be greater than 0")
-        if unit == "ppt" and value > MAX_SALINITY_PPT:
-            raise ValueError("Salinity value in ppt must be less than or equal to 100")
-        if unit == "sg" and not (MIN_SALINITY_SG <= value <= MAX_SALINITY_SG):
-            raise ValueError("Salinity value in sg must be between 1.0 and 1.04")
-        return value
-
-    @field_validator("measured_at")
-    @classmethod
-    def validate_timestamp(cls, value: datetime) -> datetime:
-        if value.tzinfo is None:
-            raise ValueError("measured_at must include timezone information")
-        return value
+MIN_CALCIUM_PPM = 0.0
+MAX_CALCIUM_PPM = 1000.0
+MIN_AMMONIA_MGL = 0.0
+MAX_AMMONIA_MGL = 50.0
+MIN_NITRITE_PPM = 0.0
+MAX_NITRITE_PPM = 50.0
+MIN_NITRATE_PPM = 0.0
+MAX_NITRATE_PPM = 500.0
+MIN_PH = 0.0
+MAX_PH = 14.0
+MIN_ALKALINITY_DKH = 0.0
+MAX_ALKALINITY_DKH = 30.0
+MIN_MAGNESIUM_PPM = 0.0
+MAX_MAGNESIUM_PPM = 2000.0
 
 
 class CreateMeasurementRequest(BaseModel):
@@ -136,69 +132,183 @@ def _to_celsius(value: float, unit: str) -> float:
     return fahrenheit_to_celsius(value)
 
 
+def _identity(value: float, unit: str) -> float:
+    return value
+
+
+def _validate_salinity_value(value: float, unit: str) -> None:
+    if unit == "ppt" and value > MAX_SALINITY_PPT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Salinity value in ppt must be less than or equal to 100",
+        )
+    if unit == "sg" and not (MIN_SALINITY_SG <= value <= MAX_SALINITY_SG):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Salinity value in sg must be between 1.0 and 1.04",
+        )
+
+
+def _validate_temperature_value(value: float, unit: str) -> None:
+    canonical_value = _to_celsius(value, unit)
+    if not (MIN_TEMPERATURE_CELSIUS <= canonical_value <= MAX_TEMPERATURE_CELSIUS):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Temperature value must be between 0 and 45 degrees Celsius",
+        )
+
+
+def _range_validator(
+    min_value: float, max_value: float, error_detail: str
+) -> Callable[[float, str], None]:
+    def _validate(value: float, unit: str) -> None:
+        if not (min_value <= value <= max_value):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=error_detail,
+            )
+
+    return _validate
+
+
+@dataclass(frozen=True)
+class ParameterRule:
+    supported_units: frozenset[str]
+    canonical_unit: str
+    canonicalize: Callable[[float, str], float]
+    validate_value: Callable[[float, str], None]
+    unit_error: str
+
+
+PARAMETER_RULES: dict[str, ParameterRule] = {
+    SALINITY_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_SALINITY_UNITS),
+        canonical_unit="ppt",
+        canonicalize=_to_ppt,
+        validate_value=_validate_salinity_value,
+        unit_error="Salinity unit must be one of: ppt, sg",
+    ),
+    TEMPERATURE_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_TEMPERATURE_UNITS),
+        canonical_unit="celsius",
+        canonicalize=_to_celsius,
+        validate_value=_validate_temperature_value,
+        unit_error="Temperature unit must be one of: celsius, fahrenheit",
+    ),
+    PHOSPHATE_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_PHOSPHATE_UNITS),
+        canonical_unit="ppm",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            0.0, MAX_PHOSPHATE_PPM, "Phosphate value in ppm must be less than or equal to 100"
+        ),
+        unit_error="Phosphate unit must be: ppm",
+    ),
+    CALCIUM_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_CALCIUM_UNITS),
+        canonical_unit="ppm",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_CALCIUM_PPM,
+            MAX_CALCIUM_PPM,
+            f"Calcium value in ppm must be between {MIN_CALCIUM_PPM} and {MAX_CALCIUM_PPM}",
+        ),
+        unit_error="Calcium unit must be: ppm",
+    ),
+    AMMONIA_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_AMMONIA_UNITS),
+        canonical_unit="mg/L",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_AMMONIA_MGL,
+            MAX_AMMONIA_MGL,
+            f"Ammonia value in mg/L must be between {MIN_AMMONIA_MGL} and {MAX_AMMONIA_MGL}",
+        ),
+        unit_error="Ammonia unit must be: mg/L",
+    ),
+    NITRITE_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_NITRITE_UNITS),
+        canonical_unit="ppm",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_NITRITE_PPM,
+            MAX_NITRITE_PPM,
+            f"Nitrite value in ppm must be between {MIN_NITRITE_PPM} and {MAX_NITRITE_PPM}",
+        ),
+        unit_error="Nitrite unit must be: ppm",
+    ),
+    NITRATE_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_NITRATE_UNITS),
+        canonical_unit="ppm",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_NITRATE_PPM,
+            MAX_NITRATE_PPM,
+            f"Nitrate value in ppm must be between {MIN_NITRATE_PPM} and {MAX_NITRATE_PPM}",
+        ),
+        unit_error="Nitrate unit must be: ppm",
+    ),
+    PH_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_PH_UNITS),
+        canonical_unit="pH",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_PH, MAX_PH, f"pH value must be between {MIN_PH} and {MAX_PH}"
+        ),
+        unit_error="pH unit must be: pH",
+    ),
+    ALKALINITY_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_ALKALINITY_UNITS),
+        canonical_unit="dKH",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_ALKALINITY_DKH,
+            MAX_ALKALINITY_DKH,
+            f"Alkalinity value in dKH must be between {MIN_ALKALINITY_DKH} and {MAX_ALKALINITY_DKH}",
+        ),
+        unit_error="Alkalinity unit must be: dKH",
+    ),
+    MAGNESIUM_PARAMETER: ParameterRule(
+        supported_units=frozenset(SUPPORTED_MAGNESIUM_UNITS),
+        canonical_unit="ppm",
+        canonicalize=_identity,
+        validate_value=_range_validator(
+            MIN_MAGNESIUM_PPM,
+            MAX_MAGNESIUM_PPM,
+            f"Magnesium value in ppm must be between {MIN_MAGNESIUM_PPM} and {MAX_MAGNESIUM_PPM}",
+        ),
+        unit_error="Magnesium unit must be: ppm",
+    ),
+}
+
+SUPPORTED_PARAMETERS = frozenset(PARAMETER_RULES.keys())
+
+
 def _normalize_timestamp(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(microsecond=0)
 
 
 def _canonicalize_measurement(parameter: str, value: float, unit: str) -> tuple[float, str]:
-    if parameter == SALINITY_PARAMETER:
-        return _to_ppt(value, unit), "ppt"
-    if parameter == TEMPERATURE_PARAMETER:
-        return _to_celsius(value, unit), "celsius"
-    return value, "ppm"
+    rule = PARAMETER_RULES[parameter]
+    return rule.canonicalize(value, unit), rule.canonical_unit
 
 
 def _validate_measurement_payload(parameter: str, value: float, unit: str) -> None:
-    if parameter == SALINITY_PARAMETER:
-        if unit not in SUPPORTED_SALINITY_UNITS:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Salinity unit must be one of: ppt, sg",
-            )
-        if unit == "ppt" and value > MAX_SALINITY_PPT:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Salinity value in ppt must be less than or equal to 100",
-            )
-        if unit == "sg" and not (MIN_SALINITY_SG <= value <= MAX_SALINITY_SG):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Salinity value in sg must be between 1.0 and 1.04",
-            )
-        return
-
-    if parameter == TEMPERATURE_PARAMETER:
-        if unit not in SUPPORTED_TEMPERATURE_UNITS:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Temperature unit must be one of: celsius, fahrenheit",
-            )
-        canonical_value = _to_celsius(value, unit)
-        if not (MIN_TEMPERATURE_CELSIUS <= canonical_value <= MAX_TEMPERATURE_CELSIUS):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Temperature value must be between 0 and 45 degrees Celsius",
-            )
-        return
-
-    if unit not in SUPPORTED_PHOSPHATE_UNITS:
+    rule = PARAMETER_RULES[parameter]
+    if unit not in rule.supported_units:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Phosphate unit must be: ppm",
+            detail=rule.unit_error,
         )
-    if value > MAX_PHOSPHATE_PPM:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Phosphate value in ppm must be less than or equal to 100",
-        )
+    rule.validate_value(value, unit)
 
 
 def _normalize_parameter(value: str) -> str:
     normalized = value.strip().lower()
-    if normalized not in SUPPORTED_PARAMETERS:
+    if normalized not in PARAMETER_RULES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Parameter must be one of: salinity, phosphate, temperature",
+            detail=f"Parameter must be one of: {', '.join(PARAMETER_RULES)}",
         )
     return normalized
 

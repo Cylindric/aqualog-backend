@@ -6,6 +6,16 @@ from fastapi.testclient import TestClient
 from src.app import create_app
 from src.config import Settings
 
+NEW_PARAMETER_CASES = [
+    ("calcium", "ppm", 420.0, 1200.0),
+    ("ammonia", "mg/L", 0.25, 60.0),
+    ("nitrite", "ppm", 0.5, 60.0),
+    ("nitrate", "ppm", 10.0, 600.0),
+    ("ph", "pH", 8.2, 15.0),
+    ("alkalinity", "dKH", 9.5, 35.0),
+    ("magnesium", "ppm", 1300.0, 2500.0),
+]
+
 
 @pytest.fixture
 def auth_settings(tmp_path):
@@ -442,14 +452,14 @@ def test_measurement_routes_reject_unsupported_path_parameter(
             aquarium_id = _create_aquarium(client, token)
 
             unsupported_create = client.post(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/nitrate",
+                f"/api/v1/aquariums/{aquarium_id}/measurements/iron",
                 headers=_auth_header(token),
                 json={"unit": "ppm", "value": 25.0, "measured_at": "2026-07-01T12:00:00Z"},
             )
             assert unsupported_create.status_code == 422
 
             unsupported_get = client.get(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/nitrate",
+                f"/api/v1/aquariums/{aquarium_id}/measurements/iron",
                 headers=_auth_header(token),
             )
             assert unsupported_get.status_code == 422
@@ -575,3 +585,178 @@ def test_measurement_delete_not_found_and_cross_user(create_valid_token, auth_se
                 headers=_auth_header(other_token),
             )
             assert cross_user.status_code == 404
+
+
+@pytest.mark.parametrize(("parameter", "unit", "value", "_invalid_value"), NEW_PARAMETER_CASES)
+def test_new_parameter_measurement_create_list_happy_path(
+    create_valid_token,
+    auth_settings,
+    mock_jwks,
+    parameter,
+    unit,
+    value,
+    _invalid_value,
+):
+    token = create_valid_token(sub=f"{parameter}-owner", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            create_response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={"unit": unit, "value": value, "measured_at": "2026-07-01T12:00:00.987654Z"},
+            )
+            assert create_response.status_code == 201
+            created = create_response.json()["data"]
+            assert created["parameter"] == parameter
+            assert created["unit"] == unit
+            assert created["value"] == pytest.approx(value)
+            assert created["raw_unit"] == unit.lower()
+            assert created["raw_value"] == pytest.approx(value)
+            assert created["measured_at"].endswith("+00:00")
+            assert "." not in created["measured_at"]
+
+            second_response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={"unit": unit, "value": value, "measured_at": "2026-07-01T12:05:00Z"},
+            )
+            assert second_response.status_code == 201
+
+            list_response = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+            )
+            assert list_response.status_code == 200
+            payload = list_response.json()
+            assert [item["measured_at"] for item in payload["data"]] == [
+                "2026-07-01T12:00:00+00:00",
+                "2026-07-01T12:05:00+00:00",
+            ]
+
+            filtered = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                params={"from": "2026-07-01T12:01:00Z"},
+            )
+            assert filtered.status_code == 200
+            assert len(filtered.json()["data"]) == 1
+            assert filtered.json()["data"][0]["measured_at"] == "2026-07-01T12:05:00+00:00"
+
+
+@pytest.mark.parametrize(("parameter", "unit", "value", "invalid_value"), NEW_PARAMETER_CASES)
+def test_new_parameter_measurement_validation_and_duplicate_errors(
+    create_valid_token,
+    auth_settings,
+    mock_jwks,
+    parameter,
+    unit,
+    value,
+    invalid_value,
+):
+    token = create_valid_token(sub=f"{parameter}-validator", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            unsupported_unit = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={"unit": "foo", "value": value, "measured_at": "2026-07-01T12:00:00Z"},
+            )
+            assert unsupported_unit.status_code == 422
+
+            invalid_value_response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={
+                    "unit": unit,
+                    "value": invalid_value,
+                    "measured_at": "2026-07-01T12:00:00Z",
+                },
+            )
+            assert invalid_value_response.status_code == 422
+
+            missing_field = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={"unit": unit, "value": value},
+            )
+            assert missing_field.status_code == 422
+
+            created = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(token),
+                json={
+                    "unit": unit,
+                    "value": value,
+                    "measured_at": "2026-07-01T12:00:00.950000Z",
+                },
+            )
+            assert created.status_code == 201
+
+            duplicate = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter.upper()}",
+                headers=_auth_header(token),
+                json={
+                    "unit": unit,
+                    "value": value,
+                    "measured_at": "2026-07-01T12:00:00.100000Z",
+                },
+            )
+            assert duplicate.status_code == 409
+
+            other_token = create_valid_token(sub=f"{parameter}-other", aud="test-client-id")
+            cross_user = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(other_token),
+                json={
+                    "unit": unit,
+                    "value": value,
+                    "measured_at": "2026-07-01T12:10:00Z",
+                },
+            )
+            assert cross_user.status_code == 404
+
+            cross_user_get = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/{parameter}",
+                headers=_auth_header(other_token),
+            )
+            assert cross_user_get.status_code == 404
+
+
+def test_new_parameter_name_casing_and_whitespace_are_normalized(
+    create_valid_token, auth_settings, mock_jwks
+):
+    token = create_valid_token(sub="calcium-casing", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            created = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/ CaLcIuM ",
+                headers=_auth_header(token),
+                json={"unit": "PPM", "value": 420.0, "measured_at": "2026-07-01T12:00:00Z"},
+            )
+            assert created.status_code == 201
+            assert created.json()["data"]["parameter"] == "calcium"
+            assert created.json()["data"]["unit"] == "ppm"
+            assert created.json()["data"]["raw_unit"] == "ppm"
+
+            listed = client.get(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/CALCIUM",
+                headers=_auth_header(token),
+            )
+            assert listed.status_code == 200
+            assert len(listed.json()["data"]) == 1
+            assert listed.json()["data"][0]["parameter"] == "calcium"
