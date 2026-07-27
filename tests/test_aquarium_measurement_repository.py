@@ -216,3 +216,56 @@ def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
         parameter="phosphate",
         measurement_id=created.id,
     )
+
+
+@pytest.mark.parametrize(
+    ("parameter", "value", "unit"),
+    [
+        ("calcium", 420.0, "ppm"),
+        ("ammonia", 0.25, "mg/L"),
+        ("nitrite", 0.5, "ppm"),
+        ("nitrate", 10.0, "ppm"),
+        ("ph", 8.2, "pH"),
+        ("alkalinity", 9.5, "dKH"),
+        ("magnesium", 1300.0, "ppm"),
+    ],
+)
+def test_measurement_repository_persists_new_parameters(tmp_path, parameter, value, unit):
+    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    owner = user_repo.resolve_or_create("https://issuer.example.com", f"owner-{parameter}")
+
+    aquarium = aquarium_repo.create(
+        owner_user_id=owner.id,
+        name=f"{parameter.title()} Tank",
+        aquarium_type="reef",
+        volume_liters=100.0,
+    )
+    measured_at = datetime(2026, 7, 4, 9, 0, 0, tzinfo=timezone.utc)
+
+    created = measurement_repo.create_measurement(
+        aquarium_id=aquarium.id,
+        owner_user_id=owner.id,
+        parameter=parameter,
+        value=value,
+        unit=unit,
+        raw_value=value,
+        raw_unit=unit,
+        measured_at=measured_at,
+    )
+
+    rows = measurement_repo.list_measurements(aquarium.id, owner.id, parameter=parameter)
+    assert [row.id for row in rows] == [created.id]
+    assert rows[0].value == value
+    assert rows[0].unit == unit
+
+    with pytest.raises(DuplicateAquariumMeasurementError):
+        measurement_repo.create_measurement(
+            aquarium_id=aquarium.id,
+            owner_user_id=owner.id,
+            parameter=parameter,
+            value=value,
+            unit=unit,
+            raw_value=value,
+            raw_unit=unit,
+            measured_at=measured_at,
+        )
