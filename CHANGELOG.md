@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.10.1 (2026-07-31)
+
+### Fix
+
+- replace deprecated pydantic .dict() with model_dump()
+
 ## v0.10.0 (2026-07-27)
 
 ### Feat

@@ -99,7 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     logger.info("Starting Aqualog Backend API with settings:")
     # print each key in orange and the value in cyan for better visibility
-    for key, value in settings.dict().items():
+    for key, value in settings.model_dump().items():
         logger.info(f"\033[33m{key}\033[0m: \033[36m{value}\033[0m")
 
     @asynccontextmanager

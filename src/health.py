@@ -23,7 +23,7 @@ def build_health_router(state: ReadinessState) -> APIRouter:
         request_id = getattr(request.state, "request_id", "unknown")
 
         status = {}
-        for key, value in request.app.state.settings.dict().items():
+        for key, value in request.app.state.settings.model_dump().items():
             if type(value) in {str, int, float, bool}:
                 status[key] = value
         status["status"] = "ready" if state.is_ready else "not_ready"
