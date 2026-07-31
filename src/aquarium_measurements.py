@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,7 +16,8 @@ from src.aquarium_measurement_repository import (
 from src.aquarium_repository import AquariumRepository
 from src.auth import get_current_user
 from src.db import get_session
-from src.models import AquariumMeasurement
+from src.models import AquariumMeasurement, Parameter
+from src.parameter_repository import ParameterRepository
 from src.responses import success_response
 from src.user_service import AuthenticatedUser
 
@@ -303,14 +305,15 @@ def _validate_measurement_payload(parameter: str, value: float, unit: str) -> No
     rule.validate_value(value, unit)
 
 
-def _normalize_parameter(value: str) -> str:
+def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> Parameter:
     normalized = value.strip().lower()
-    if normalized not in PARAMETER_RULES:
+    parameter = parameter_repo.get_by_slug(normalized)
+    if parameter is None or normalized not in PARAMETER_RULES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Parameter must be one of: {', '.join(PARAMETER_RULES)}",
         )
-    return normalized
+    return parameter
 
 
 def _to_utc_iso(value: datetime) -> str:
@@ -319,11 +322,11 @@ def _to_utc_iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat()
 
 
-def _to_payload(measurement: AquariumMeasurement) -> dict[str, str | float]:
+def _to_payload(measurement: AquariumMeasurement, parameter_slug: str) -> dict[str, str | float]:
     return {
-        "id": measurement.id,
-        "aquarium_id": measurement.aquarium_id,
-        "parameter": measurement.parameter,
+        "id": str(measurement.id),
+        "aquarium_id": str(measurement.aquarium_id),
+        "parameter": parameter_slug,
         "value": measurement.value,
         "unit": measurement.unit,
         "raw_value": measurement.raw_value,
@@ -342,7 +345,7 @@ def build_aquarium_measurement_router() -> APIRouter:
         status_code=status.HTTP_201_CREATED,
     )
     async def create_measurement(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         parameter: str,
         request: Request,
         payload: CreateMeasurementRequest = Body(...),
@@ -355,13 +358,14 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
-        _validate_measurement_payload(normalized_parameter, payload.value, payload.unit)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
+        _validate_measurement_payload(normalized_parameter.slug, payload.value, payload.unit)
 
         measurement_repo = AquariumMeasurementRepository(session)
         normalized_measured_at = _normalize_timestamp(payload.measured_at)
         canonical_value, canonical_unit = _canonicalize_measurement(
-            normalized_parameter,
+            normalized_parameter.slug,
             payload.value,
             payload.unit,
         )
@@ -370,7 +374,7 @@ def build_aquarium_measurement_router() -> APIRouter:
             measurement = measurement_repo.create_measurement(
                 aquarium_id=aquarium.id,
                 owner_user_id=current_user.user.id,
-                parameter=normalized_parameter,
+                parameter_id=normalized_parameter.id,
                 value=canonical_value,
                 unit=canonical_unit,
                 raw_value=payload.value,
@@ -380,16 +384,18 @@ def build_aquarium_measurement_router() -> APIRouter:
         except DuplicateAquariumMeasurementError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Duplicate {normalized_parameter} reading timestamp for aquarium",
+                detail=f"Duplicate {normalized_parameter.slug} reading timestamp for aquarium",
             ) from exc
 
         return success_response(
-            _to_payload(measurement), request_id=request_id, status_code=status.HTTP_201_CREATED
+            _to_payload(measurement, normalized_parameter.slug),
+            request_id=request_id,
+            status_code=status.HTTP_201_CREATED,
         )
 
     @router.get("/{aquarium_id}/measurements/{parameter}", response_model=MeasurementListResponse)
     async def list_measurements(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         parameter: str,
         request: Request,
         measured_from: datetime | None = Query(default=None, alias="from"),
@@ -403,7 +409,8 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
 
         measurement_repo = AquariumMeasurementRepository(session)
         if measured_from is not None:
@@ -416,15 +423,18 @@ def build_aquarium_measurement_router() -> APIRouter:
             owner_user_id=current_user.user.id,
             measured_from=measured_from,
             measured_to=measured_to,
-            parameter=normalized_parameter,
+            parameter_id=normalized_parameter.id,
         )
-        return success_response([_to_payload(item) for item in measurements], request_id=request_id)
+        return success_response(
+            [_to_payload(item, normalized_parameter.slug) for item in measurements],
+            request_id=request_id,
+        )
 
     @router.delete("/{aquarium_id}/measurements/{parameter}/{id}")
     async def delete_measurement(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         parameter: str,
-        id: str,
+        id: uuid.UUID,
         request: Request,
         current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
@@ -435,11 +445,12 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
         measurement_repo = AquariumMeasurementRepository(session)
         deleted = measurement_repo.delete_measurement(
             aquarium_id=aquarium.id,
-            parameter=normalized_parameter,
+            parameter_id=normalized_parameter.id,
             measurement_id=id,
         )
         if not deleted:
@@ -447,6 +458,6 @@ def build_aquarium_measurement_router() -> APIRouter:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found"
             )
 
-        return success_response({"id": id, "deleted": True}, request_id=request_id)
+        return success_response({"id": str(id), "deleted": True}, request_id=request_id)
 
     return router

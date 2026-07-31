@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.models import Aquarium, AquariumMeasurement
+from src.models import Aquarium, AquariumMeasurement, Parameter
 
 
 class DuplicateAquariumMeasurementError(ValueError):
@@ -18,8 +19,8 @@ class AquariumMeasurementRepository:
 
     def create_salinity(
         self,
-        aquarium_id: str,
-        owner_user_id: str,
+        aquarium_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         value_ppt: float,
         raw_value: float,
         raw_unit: str,
@@ -28,7 +29,7 @@ class AquariumMeasurementRepository:
         return self.create_measurement(
             aquarium_id=aquarium_id,
             owner_user_id=owner_user_id,
-            parameter="salinity",
+            parameter_id=self._salinity_parameter_id(),
             value=value_ppt,
             unit="ppt",
             raw_value=raw_value,
@@ -38,9 +39,9 @@ class AquariumMeasurementRepository:
 
     def create_measurement(
         self,
-        aquarium_id: str,
-        owner_user_id: str,
-        parameter: str,
+        aquarium_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
+        parameter_id: uuid.UUID,
         value: float,
         unit: str,
         raw_value: float,
@@ -49,7 +50,7 @@ class AquariumMeasurementRepository:
     ) -> AquariumMeasurement:
         measurement = AquariumMeasurement(
             aquarium_id=aquarium_id,
-            parameter=parameter,
+            parameter_id=parameter_id,
             value=value,
             unit=unit,
             raw_value=raw_value,
@@ -71,8 +72,8 @@ class AquariumMeasurementRepository:
 
     def list_salinity(
         self,
-        aquarium_id: str,
-        owner_user_id: str,
+        aquarium_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         measured_from: datetime | None = None,
         measured_to: datetime | None = None,
     ) -> list[AquariumMeasurement]:
@@ -81,16 +82,16 @@ class AquariumMeasurementRepository:
             owner_user_id=owner_user_id,
             measured_from=measured_from,
             measured_to=measured_to,
-            parameter="salinity",
+            parameter_id=self._salinity_parameter_id(),
         )
 
     def list_measurements(
         self,
-        aquarium_id: str,
-        owner_user_id: str,
+        aquarium_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         measured_from: datetime | None = None,
         measured_to: datetime | None = None,
-        parameter: str | None = None,
+        parameter_id: uuid.UUID | None = None,
     ) -> list[AquariumMeasurement]:
         if not self._is_owned_aquarium(aquarium_id, owner_user_id):
             raise ValueError("Aquarium not found")
@@ -99,8 +100,8 @@ class AquariumMeasurementRepository:
             AquariumMeasurement.aquarium_id == aquarium_id
         )
 
-        if parameter is not None:
-            query = query.filter(AquariumMeasurement.parameter == parameter)
+        if parameter_id is not None:
+            query = query.filter(AquariumMeasurement.parameter_id == parameter_id)
 
         if measured_from is not None:
             query = query.filter(AquariumMeasurement.measured_at >= measured_from)
@@ -111,16 +112,16 @@ class AquariumMeasurementRepository:
 
     def delete_measurement(
         self,
-        aquarium_id: str,
-        parameter: str,
-        measurement_id: str,
+        aquarium_id: uuid.UUID,
+        parameter_id: uuid.UUID,
+        measurement_id: uuid.UUID,
     ) -> bool:
         measurement = (
             self.session.query(AquariumMeasurement)
             .filter(
                 AquariumMeasurement.id == measurement_id,
                 AquariumMeasurement.aquarium_id == aquarium_id,
-                AquariumMeasurement.parameter == parameter,
+                AquariumMeasurement.parameter_id == parameter_id,
             )
             .first()
         )
@@ -131,10 +132,13 @@ class AquariumMeasurementRepository:
         self.session.commit()
         return True
 
-    def _is_owned_aquarium(self, aquarium_id: str, owner_user_id: str) -> bool:
+    def _is_owned_aquarium(self, aquarium_id: uuid.UUID, owner_user_id: uuid.UUID) -> bool:
         return (
             self.session.query(Aquarium.id)
             .filter(Aquarium.id == aquarium_id, Aquarium.owner_user_id == owner_user_id)
             .first()
             is not None
         )
+
+    def _salinity_parameter_id(self) -> uuid.UUID:
+        return self.session.query(Parameter.id).filter(Parameter.slug == "salinity").one()[0]

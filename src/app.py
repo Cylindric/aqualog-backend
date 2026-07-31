@@ -21,6 +21,7 @@ from src.config import Settings, load_settings
 from src.db import init_database
 from src.health import ReadinessState, build_health_router
 from src.logging_middleware import RequestLoggingMiddleware
+from src.parameters import build_parameter_router
 from src.profile import build_profile_router
 from src.responses import error_response, success_response
 
@@ -154,6 +155,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_aquarium_router(), prefix=versioned_prefix)
     app.include_router(build_aquarium_measurement_router(), prefix=versioned_prefix)
     app.include_router(build_aquarium_parameter_threshold_router(), prefix=versioned_prefix)
+    app.include_router(build_parameter_router(), prefix=versioned_prefix)
 
     @app.get("/")
     async def root(request: Request):
