@@ -616,7 +616,9 @@ def test_new_parameter_measurement_create_list_happy_path(
             assert created["parameter"] == parameter
             assert created["unit"] == unit
             assert created["value"] == pytest.approx(value)
-            assert created["raw_unit"] == unit.lower()
+            # raw_unit resolves through the unit catalog (case-insensitive lookup), so it
+            # is returned in the catalog's canonical casing, matching `unit` here.
+            assert created["raw_unit"] == unit
             assert created["raw_value"] == pytest.approx(value)
             assert created["measured_at"].endswith("+00:00")
             assert "." not in created["measured_at"]

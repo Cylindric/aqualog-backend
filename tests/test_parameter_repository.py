@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from src.aquarium_measurement_repository import AquariumMeasurementRepository
 from src.aquarium_repository import AquariumRepository
 from src.db import Base
+from src.models import Unit
 from src.parameter_repository import (
     DuplicateParameterSlugError,
     ParameterInUseError,
@@ -81,11 +82,16 @@ def test_parameter_repository_update_and_delete_missing_slug_are_no_ops(tmp_path
 
 
 def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp_path):
-    parameter_repo, aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    parameter_repo, aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
 
     salinity_parameter = parameter_repo.create(
         slug="salinity", display_name="Salinity", description=None
     )
+    ppt_unit = Unit(unit="ppt", slug="ppt", display_name="Parts per Thousand", description=None)
+    session.add(ppt_unit)
+    session.commit()
+    session.refresh(ppt_unit)
+
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner")
     aquarium = aquarium_repo.create(
         owner_user_id=owner.id,
@@ -98,9 +104,9 @@ def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp
         owner_user_id=owner.id,
         parameter_id=salinity_parameter.id,
         value=35.0,
-        unit="ppt",
+        unit_id=ppt_unit.id,
         raw_value=35.0,
-        raw_unit="ppt",
+        raw_unit_id=ppt_unit.id,
         measured_at=datetime(2026, 7, 1, 12, 0, 0, tzinfo=timezone.utc),
     )
 

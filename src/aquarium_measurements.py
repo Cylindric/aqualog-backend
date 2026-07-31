@@ -16,9 +16,10 @@ from src.aquarium_measurement_repository import (
 from src.aquarium_repository import AquariumRepository
 from src.auth import get_current_user
 from src.db import get_session
-from src.models import AquariumMeasurement, Parameter
+from src.models import AquariumMeasurement, Parameter, Unit
 from src.parameter_repository import ParameterRepository
 from src.responses import success_response
+from src.unit_repository import UnitRepository
 from src.user_service import AuthenticatedUser
 
 SUPPORTED_SALINITY_UNITS = {"ppt", "sg"}
@@ -295,14 +296,18 @@ def _canonicalize_measurement(parameter: str, value: float, unit: str) -> tuple[
     return rule.canonicalize(value, unit), rule.canonical_unit
 
 
-def _validate_measurement_payload(parameter: str, value: float, unit: str) -> None:
-    rule = PARAMETER_RULES[parameter]
-    if unit not in rule.supported_units:
+def _validate_measurement_payload(
+    parameter: Parameter, value: float, unit: str, unit_repo: UnitRepository
+) -> Unit:
+    rule = PARAMETER_RULES[parameter.slug]
+    unit_row = unit_repo.get_by_unit(unit)
+    if unit_row is None or not unit_repo.is_unit_valid_for_parameter(parameter.id, unit_row.id):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=rule.unit_error,
         )
     rule.validate_value(value, unit)
+    return unit_row
 
 
 def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> Parameter:
@@ -328,9 +333,9 @@ def _to_payload(measurement: AquariumMeasurement, parameter_slug: str) -> dict[s
         "aquarium_id": str(measurement.aquarium_id),
         "parameter": parameter_slug,
         "value": measurement.value,
-        "unit": measurement.unit,
+        "unit": measurement.unit.unit,
         "raw_value": measurement.raw_value,
-        "raw_unit": measurement.raw_unit,
+        "raw_unit": measurement.raw_unit.unit,
         "measured_at": _to_utc_iso(measurement.measured_at),
         "created_at": _to_utc_iso(measurement.created_at),
     }
@@ -359,16 +364,24 @@ def build_aquarium_measurement_router() -> APIRouter:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
         parameter_repo = ParameterRepository(session)
+        unit_repo = UnitRepository(session)
         normalized_parameter = _normalize_parameter(parameter, parameter_repo)
-        _validate_measurement_payload(normalized_parameter.slug, payload.value, payload.unit)
+        raw_unit_row = _validate_measurement_payload(
+            normalized_parameter, payload.value, payload.unit, unit_repo
+        )
 
         measurement_repo = AquariumMeasurementRepository(session)
         normalized_measured_at = _normalize_timestamp(payload.measured_at)
-        canonical_value, canonical_unit = _canonicalize_measurement(
+        canonical_value, canonical_unit_notation = _canonicalize_measurement(
             normalized_parameter.slug,
             payload.value,
             payload.unit,
         )
+        canonical_unit_row = unit_repo.get_by_unit(canonical_unit_notation)
+        if canonical_unit_row is None:
+            raise RuntimeError(
+                f"Canonical unit '{canonical_unit_notation}' missing from unit catalog"
+            )
 
         try:
             measurement = measurement_repo.create_measurement(
@@ -376,9 +389,9 @@ def build_aquarium_measurement_router() -> APIRouter:
                 owner_user_id=current_user.user.id,
                 parameter_id=normalized_parameter.id,
                 value=canonical_value,
-                unit=canonical_unit,
+                unit_id=canonical_unit_row.id,
                 raw_value=payload.value,
-                raw_unit=payload.unit,
+                raw_unit_id=raw_unit_row.id,
                 measured_at=normalized_measured_at,
             )
         except DuplicateAquariumMeasurementError as exc:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
@@ -10,6 +11,7 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config import Settings
+from src.unit_slug import slugify_unit
 
 
 class Base(DeclarativeBase):
@@ -33,6 +35,40 @@ _SEED_PARAMETERS = (
     ("ph", "pH", "Acidity/alkalinity of the water on the pH scale."),
     ("alkalinity", "Alkalinity", "Carbonate hardness/buffering capacity, measured in dKH."),
     ("magnesium", "Magnesium", "Magnesium concentration, measured in ppm."),
+)
+
+# Mirrors the seed data inserted by the `20260731_000003_add_unit_catalog` /
+# `20260731_000005_units_add_unit_and_normalize_slug` Alembic migrations. Tests build
+# their schema from model metadata rather than running migrations, so the catalog
+# must be seeded here to match. First element is the unit *notation* (`unit` column);
+# `slug` (URL-safe routing key) is derived from it via `slugify_unit`.
+_SEED_UNITS = (
+    ("ppt", "Parts per Thousand", "Salinity concentration, measured in parts per thousand."),
+    ("sg", "Specific Gravity", "Salinity measured as specific gravity relative to fresh water."),
+    ("celsius", "Celsius", "Temperature, measured in degrees Celsius."),
+    ("fahrenheit", "Fahrenheit", "Temperature, measured in degrees Fahrenheit."),
+    ("ppm", "Parts per Million", "Concentration, measured in parts per million."),
+    ("mg/L", "Milligrams per Litre", "Concentration, measured in milligrams per litre."),
+    ("pH", "pH", "Acidity/alkalinity of the water on the pH scale."),
+    ("dKH", "Degrees KH", "Carbonate hardness / buffering capacity, measured in degrees KH."),
+    ("L", "Litres", "Volume, measured in litres."),
+    ("gal_us", "US Gallons", "Volume, measured in US gallons."),
+)
+
+# (parameter_slug, unit_notation, is_canonical)
+_SEED_PARAMETER_UNITS = (
+    ("salinity", "ppt", True),
+    ("salinity", "sg", False),
+    ("temperature", "celsius", True),
+    ("temperature", "fahrenheit", False),
+    ("phosphate", "ppm", True),
+    ("calcium", "ppm", True),
+    ("ammonia", "mg/L", True),
+    ("nitrite", "ppm", True),
+    ("nitrate", "ppm", True),
+    ("ph", "pH", True),
+    ("alkalinity", "dKH", True),
+    ("magnesium", "ppm", True),
 )
 
 
@@ -100,6 +136,8 @@ def init_database(settings: Settings) -> None:
     if settings.app_env == "test":
         Base.metadata.create_all(bind=_engine)
         _seed_parameters(models.Parameter)
+        _seed_units(models.Unit)
+        _seed_parameter_units(models.Parameter, models.Unit, models.ParameterUnit)
 
     with _engine.connect() as connection:
         connection.execute(text("SELECT 1"))
@@ -124,6 +162,60 @@ def _seed_parameters(parameter_model: type) -> None:
             )
             for slug, display_name, description in _SEED_PARAMETERS
         )
+        session.commit()
+    finally:
+        session.close()
+
+
+def _seed_units(unit_model: type) -> None:
+    if _session_factory is None:
+        return
+
+    session = _session_factory()
+    try:
+        if session.query(unit_model).first() is not None:
+            return
+        now = datetime.now(timezone.utc)
+        session.add_all(
+            unit_model(
+                unit=unit,
+                slug=slugify_unit(unit),
+                display_name=display_name,
+                description=description,
+                created_at=now,
+                updated_at=now,
+            )
+            for unit, display_name, description in _SEED_UNITS
+        )
+        session.commit()
+    finally:
+        session.close()
+
+
+def _seed_parameter_units(
+    parameter_model: Any, unit_model: Any, parameter_unit_model: type
+) -> None:
+    if _session_factory is None:
+        return
+
+    session = _session_factory()
+    try:
+        if session.query(parameter_unit_model).first() is not None:
+            return
+        for parameter_slug, unit_notation, is_canonical in _SEED_PARAMETER_UNITS:
+            parameter_id = (
+                session.query(parameter_model.id)
+                .filter(parameter_model.slug == parameter_slug)
+                .scalar()
+            )
+            unit_id = session.query(unit_model.id).filter(unit_model.unit == unit_notation).scalar()
+            session.add(
+                parameter_unit_model(
+                    parameter_id=parameter_id,
+                    unit_id=unit_id,
+                    is_canonical=is_canonical,
+                )
+            )
         session.commit()
     finally:
         session.close()

@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.models import Aquarium, AquariumMeasurement, Parameter
+from src.models import Aquarium, AquariumMeasurement, Parameter, Unit
 
 
 class DuplicateAquariumMeasurementError(ValueError):
@@ -31,9 +32,9 @@ class AquariumMeasurementRepository:
             owner_user_id=owner_user_id,
             parameter_id=self._salinity_parameter_id(),
             value=value_ppt,
-            unit="ppt",
+            unit_id=self._unit_id_by_notation("ppt"),
             raw_value=raw_value,
-            raw_unit=raw_unit,
+            raw_unit_id=self._unit_id_by_notation(raw_unit),
             measured_at=measured_at,
         )
 
@@ -43,18 +44,18 @@ class AquariumMeasurementRepository:
         owner_user_id: uuid.UUID,
         parameter_id: uuid.UUID,
         value: float,
-        unit: str,
+        unit_id: uuid.UUID,
         raw_value: float,
-        raw_unit: str,
+        raw_unit_id: uuid.UUID,
         measured_at: datetime,
     ) -> AquariumMeasurement:
         measurement = AquariumMeasurement(
             aquarium_id=aquarium_id,
             parameter_id=parameter_id,
             value=value,
-            unit=unit,
+            unit_id=unit_id,
             raw_value=raw_value,
-            raw_unit=raw_unit,
+            raw_unit_id=raw_unit_id,
             measured_at=measured_at,
         )
         if not self._is_owned_aquarium(aquarium_id, owner_user_id):
@@ -142,3 +143,6 @@ class AquariumMeasurementRepository:
 
     def _salinity_parameter_id(self) -> uuid.UUID:
         return self.session.query(Parameter.id).filter(Parameter.slug == "salinity").one()[0]
+
+    def _unit_id_by_notation(self, unit: str) -> uuid.UUID:
+        return self.session.query(Unit.id).filter(func.lower(Unit.unit) == unit.lower()).one()[0]
