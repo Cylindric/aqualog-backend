@@ -118,7 +118,6 @@ def build_unit_router() -> APIRouter:
     @router.get("", response_model=UnitListResponse, summary="List unit catalog")
     async def list_units(
         request: Request,
-        current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
         request_id = getattr(request.state, "request_id", "unknown")
@@ -130,7 +129,6 @@ def build_unit_router() -> APIRouter:
     async def get_unit(
         slug: str,
         request: Request,
-        current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
         request_id = getattr(request.state, "request_id", "unknown")

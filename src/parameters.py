@@ -120,7 +120,6 @@ def build_parameter_router() -> APIRouter:
     @router.get("", response_model=ParameterListResponse, summary="List parameter catalog")
     async def list_parameters(
         request: Request,
-        current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
         request_id = getattr(request.state, "request_id", "unknown")
@@ -132,7 +131,6 @@ def build_parameter_router() -> APIRouter:
     async def get_parameter(
         slug: str,
         request: Request,
-        current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
     ):
         request_id = getattr(request.state, "request_id", "unknown")
