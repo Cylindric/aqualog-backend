@@ -64,6 +64,18 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.12.0 (2026-07-31)
+
+### Feat
+
+- back measurement units with a DB catalog and parameter-unit associations
+
+### Fix
+
+- some public endpoints
+- correct units symbols
+- split Unit slug (URL-safe) from unit notation
+
 ## v0.11.0 (2026-07-31)
 
 ### Feat
