@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from src.aquarium_parameter_threshold_repository import AquariumParameterThresholdRepository
 from src.aquarium_repository import AquariumRepository
 from src.db import Base
+from src.models import Parameter
 from src.user_repository import UserRepository
 
 
@@ -22,8 +23,17 @@ def _build_repos(tmp_path):
     )
 
 
+def _create_parameter(session, slug: str) -> Parameter:
+    parameter = Parameter(slug=slug, display_name=slug.title(), description=None)
+    session.add(parameter)
+    session.commit()
+    session.refresh(parameter)
+    return parameter
+
+
 def test_threshold_repository_create_and_get(tmp_path):
-    aquarium_repo, threshold_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, threshold_repo, user_repo, session = _build_repos(tmp_path)
+    salinity_parameter = _create_parameter(session, "salinity")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner")
 
     aquarium = aquarium_repo.create(
@@ -33,12 +43,15 @@ def test_threshold_repository_create_and_get(tmp_path):
         volume_liters=120.0,
     )
 
-    assert threshold_repo.get_by_aquarium_and_parameter(aquarium.id, owner.id, "salinity") is None
+    assert (
+        threshold_repo.get_by_aquarium_and_parameter(aquarium.id, owner.id, salinity_parameter.id)
+        is None
+    )
 
     created = threshold_repo.upsert(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="salinity",
+        parameter_id=salinity_parameter.id,
         target=35.0,
         min=33.0,
         max=37.0,
@@ -49,13 +62,16 @@ def test_threshold_repository_create_and_get(tmp_path):
     assert created.max == 37.0
     assert created.unit == "ppt"
 
-    fetched = threshold_repo.get_by_aquarium_and_parameter(aquarium.id, owner.id, "salinity")
+    fetched = threshold_repo.get_by_aquarium_and_parameter(
+        aquarium.id, owner.id, salinity_parameter.id
+    )
     assert fetched is not None
     assert fetched.id == created.id
 
 
 def test_threshold_repository_upsert_replaces_existing_row(tmp_path):
-    aquarium_repo, threshold_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, threshold_repo, user_repo, session = _build_repos(tmp_path)
+    phosphate_parameter = _create_parameter(session, "phosphate")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-replace")
 
     aquarium = aquarium_repo.create(
@@ -68,7 +84,7 @@ def test_threshold_repository_upsert_replaces_existing_row(tmp_path):
     first = threshold_repo.upsert(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         target=0.05,
         min=None,
         max=0.1,
@@ -78,7 +94,7 @@ def test_threshold_repository_upsert_replaces_existing_row(tmp_path):
     second = threshold_repo.upsert(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         target=0.08,
         min=0.02,
         max=0.12,
@@ -92,7 +108,9 @@ def test_threshold_repository_upsert_replaces_existing_row(tmp_path):
 
 
 def test_threshold_repository_unique_per_aquarium_and_parameter(tmp_path):
-    aquarium_repo, threshold_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, threshold_repo, user_repo, session = _build_repos(tmp_path)
+    salinity_parameter = _create_parameter(session, "salinity")
+    temperature_parameter = _create_parameter(session, "temperature")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-unique")
 
     aquarium = aquarium_repo.create(
@@ -105,7 +123,7 @@ def test_threshold_repository_unique_per_aquarium_and_parameter(tmp_path):
     salinity = threshold_repo.upsert(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="salinity",
+        parameter_id=salinity_parameter.id,
         target=35.0,
         min=None,
         max=None,
@@ -114,7 +132,7 @@ def test_threshold_repository_unique_per_aquarium_and_parameter(tmp_path):
     temperature = threshold_repo.upsert(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="temperature",
+        parameter_id=temperature_parameter.id,
         target=25.0,
         min=None,
         max=None,
@@ -125,7 +143,8 @@ def test_threshold_repository_unique_per_aquarium_and_parameter(tmp_path):
 
 
 def test_threshold_repository_rejects_non_owned_aquarium(tmp_path):
-    aquarium_repo, threshold_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, threshold_repo, user_repo, session = _build_repos(tmp_path)
+    salinity_parameter = _create_parameter(session, "salinity")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-cross")
     other = user_repo.resolve_or_create("https://issuer.example.com", "other-cross")
 
@@ -137,13 +156,13 @@ def test_threshold_repository_rejects_non_owned_aquarium(tmp_path):
     )
 
     with pytest.raises(ValueError):
-        threshold_repo.get_by_aquarium_and_parameter(aquarium.id, other.id, "salinity")
+        threshold_repo.get_by_aquarium_and_parameter(aquarium.id, other.id, salinity_parameter.id)
 
     with pytest.raises(ValueError):
         threshold_repo.upsert(
             aquarium_id=aquarium.id,
             owner_user_id=other.id,
-            parameter="salinity",
+            parameter_id=salinity_parameter.id,
             target=35.0,
             min=None,
             max=None,

@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -575,7 +576,7 @@ def test_measurement_delete_not_found_and_cross_user(create_valid_token, auth_se
             assert wrong_parameter.status_code == 404
 
             unknown_measurement = client.delete(
-                f"/api/v1/aquariums/{aquarium_id}/measurements/phosphate/not-a-real-id",
+                f"/api/v1/aquariums/{aquarium_id}/measurements/phosphate/{uuid4()}",
                 headers=_auth_header(owner_token),
             )
             assert unknown_measurement.status_code == 404

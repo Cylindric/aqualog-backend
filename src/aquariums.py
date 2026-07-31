@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
@@ -119,7 +121,7 @@ def _to_liters(volume: VolumeInput) -> float:
 
 def _to_payload(aquarium: Aquarium) -> dict[str, str | float]:
     return {
-        "id": aquarium.id,
+        "id": str(aquarium.id),
         "name": aquarium.name,
         "type": aquarium.type,
         "volume_liters": aquarium.volume_liters,
@@ -153,7 +155,7 @@ def build_aquarium_router() -> APIRouter:
 
     @router.get("/{aquarium_id}", response_model=AquariumResponse)
     async def get_aquarium(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         request: Request,
         current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
@@ -224,7 +226,7 @@ def build_aquarium_router() -> APIRouter:
 
     @router.patch("/{aquarium_id}", response_model=AquariumResponse)
     async def update_aquarium(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         request: Request,
         payload: UpdateAquariumRequest = Body(...),
         current_user: AuthenticatedUser = Depends(get_current_user),
@@ -255,7 +257,7 @@ def build_aquarium_router() -> APIRouter:
 
     @router.delete("/{aquarium_id}", response_model=DeleteAquariumResponse)
     async def delete_aquarium(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         request: Request,
         current_user: AuthenticatedUser = Depends(get_current_user),
         session: Session = Depends(get_session),
@@ -265,6 +267,6 @@ def build_aquarium_router() -> APIRouter:
         deleted = repository.delete_by_id_and_owner(aquarium_id, current_user.user.id)
         if not deleted:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
-        return success_response({"id": aquarium_id, "deleted": True}, request_id=request_id)
+        return success_response({"id": str(aquarium_id), "deleted": True}, request_id=request_id)
 
     return router

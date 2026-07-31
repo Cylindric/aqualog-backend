@@ -83,7 +83,9 @@ def test_parameter_repository_update_and_delete_missing_slug_are_no_ops(tmp_path
 def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp_path):
     parameter_repo, aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
 
-    parameter_repo.create(slug="salinity", display_name="Salinity", description=None)
+    salinity_parameter = parameter_repo.create(
+        slug="salinity", display_name="Salinity", description=None
+    )
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner")
     aquarium = aquarium_repo.create(
         owner_user_id=owner.id,
@@ -94,7 +96,7 @@ def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp
     measurement = measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="salinity",
+        parameter_id=salinity_parameter.id,
         value=35.0,
         unit="ppt",
         raw_value=35.0,
@@ -106,7 +108,7 @@ def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp
         parameter_repo.delete_by_slug("salinity")
 
     measurement_repo.delete_measurement(
-        aquarium_id=aquarium.id, parameter="salinity", measurement_id=measurement.id
+        aquarium_id=aquarium.id, parameter_id=salinity_parameter.id, measurement_id=measurement.id
     )
 
     assert parameter_repo.delete_by_slug("salinity") is True

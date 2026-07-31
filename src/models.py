@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db import Base
@@ -23,7 +24,7 @@ class User(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
     oauth_issuer: Mapped[str] = mapped_column(String(255), nullable=False)
     oauth_subject: Mapped[str] = mapped_column(String(255), nullable=False)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -50,9 +51,9 @@ class Aquarium(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    owner_user_id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -74,7 +75,7 @@ class Aquarium(Base):
 class Parameter(Base):
     __tablename__ = "parameters"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
     slug: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -94,21 +95,21 @@ class AquariumParameterThreshold(Base):
     __table_args__ = (
         UniqueConstraint(
             "aquarium_id",
-            "parameter",
+            "parameter_id",
             name="uq_aquarium_parameter_thresholds_aquarium_parameter",
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    aquarium_id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
+    aquarium_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
         ForeignKey("aquariums.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    parameter: Mapped[str] = mapped_column(
-        String(32),
-        ForeignKey("parameters.slug", ondelete="RESTRICT"),
+    parameter_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("parameters.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
@@ -132,22 +133,22 @@ class AquariumMeasurement(Base):
     __table_args__ = (
         UniqueConstraint(
             "aquarium_id",
-            "parameter",
+            "parameter_id",
             "measured_at",
             name="uq_aquarium_measurements_aquarium_parameter_measured_at",
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    aquarium_id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
+    aquarium_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
         ForeignKey("aquariums.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    parameter: Mapped[str] = mapped_column(
-        String(32),
-        ForeignKey("parameters.slug", ondelete="RESTRICT"),
+    parameter_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("parameters.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )

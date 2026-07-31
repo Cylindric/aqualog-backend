@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,11 +16,11 @@ class AquariumRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def _require_owner(self, owner_user_id: str) -> None:
+    def _require_owner(self, owner_user_id: uuid.UUID) -> None:
         if not owner_user_id:
             raise ValueError("owner_user_id is required")
 
-    def list_by_owner(self, owner_user_id: str) -> list[Aquarium]:
+    def list_by_owner(self, owner_user_id: uuid.UUID) -> list[Aquarium]:
         self._require_owner(owner_user_id)
         return (
             self.session.query(Aquarium)
@@ -27,7 +29,9 @@ class AquariumRepository:
             .all()
         )
 
-    def get_by_id_and_owner(self, aquarium_id: str, owner_user_id: str) -> Aquarium | None:
+    def get_by_id_and_owner(
+        self, aquarium_id: uuid.UUID, owner_user_id: uuid.UUID
+    ) -> Aquarium | None:
         self._require_owner(owner_user_id)
         return (
             self.session.query(Aquarium)
@@ -36,7 +40,7 @@ class AquariumRepository:
         )
 
     def create(
-        self, owner_user_id: str, name: str, aquarium_type: str, volume_liters: float
+        self, owner_user_id: uuid.UUID, name: str, aquarium_type: str, volume_liters: float
     ) -> Aquarium:
         self._require_owner(owner_user_id)
         aquarium = Aquarium(
@@ -56,8 +60,8 @@ class AquariumRepository:
 
     def update_by_id_and_owner(
         self,
-        aquarium_id: str,
-        owner_user_id: str,
+        aquarium_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         updates: dict[str, str | float],
     ) -> Aquarium | None:
         self._require_owner(owner_user_id)
@@ -77,7 +81,7 @@ class AquariumRepository:
         self.session.refresh(aquarium)
         return aquarium
 
-    def delete_by_id_and_owner(self, aquarium_id: str, owner_user_id: str) -> bool:
+    def delete_by_id_and_owner(self, aquarium_id: uuid.UUID, owner_user_id: uuid.UUID) -> bool:
         self._require_owner(owner_user_id)
         aquarium = self.get_by_id_and_owner(aquarium_id=aquarium_id, owner_user_id=owner_user_id)
         if aquarium is None:

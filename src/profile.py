@@ -36,7 +36,7 @@ class UpdateProfileRequest(BaseModel):
 
 def _to_profile_payload(user: User) -> dict[str, str | None]:
     return {
-        "id": user.id,
+        "id": str(user.id),
         "username": user.username,
         "display_name": user.display_name,
         "bio": user.bio,

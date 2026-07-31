@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy.orm import Session
@@ -39,7 +41,7 @@ from src.aquarium_parameter_threshold_repository import AquariumParameterThresho
 from src.aquarium_repository import AquariumRepository
 from src.auth import get_current_user
 from src.db import get_session
-from src.models import AquariumParameterThreshold
+from src.models import AquariumParameterThreshold, Parameter
 from src.parameter_repository import ParameterRepository
 from src.responses import success_response
 from src.user_service import AuthenticatedUser
@@ -104,17 +106,15 @@ class ThresholdResponse(BaseModel):
     data: ThresholdPayload
 
 
-def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> str:
+def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> Parameter:
     normalized = value.strip().lower()
-    if (
-        parameter_repo.get_by_slug(normalized) is None
-        or normalized not in SUPPORTED_THRESHOLD_PARAMETERS
-    ):
+    parameter = parameter_repo.get_by_slug(normalized)
+    if parameter is None or normalized not in SUPPORTED_THRESHOLD_PARAMETERS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Parameter must be one of: {', '.join(SUPPORTED_THRESHOLD_PARAMETERS)}",
         )
-    return normalized
+    return parameter
 
 
 def _validate_threshold_values(parameter: str, payload: SetThresholdRequest) -> None:
@@ -131,9 +131,9 @@ def _validate_threshold_values(parameter: str, payload: SetThresholdRequest) -> 
             )
 
 
-def _empty_payload(aquarium_id: str, parameter: str) -> dict[str, str | float | None]:
+def _empty_payload(aquarium_id: uuid.UUID, parameter: str) -> dict[str, str | float | None]:
     return {
-        "aquarium_id": aquarium_id,
+        "aquarium_id": str(aquarium_id),
         "parameter": parameter,
         "target": None,
         "min": None,
@@ -142,10 +142,12 @@ def _empty_payload(aquarium_id: str, parameter: str) -> dict[str, str | float | 
     }
 
 
-def _to_payload(threshold: AquariumParameterThreshold) -> dict[str, str | float | None]:
+def _to_payload(
+    threshold: AquariumParameterThreshold, parameter_slug: str
+) -> dict[str, str | float | None]:
     return {
-        "aquarium_id": threshold.aquarium_id,
-        "parameter": threshold.parameter,
+        "aquarium_id": str(threshold.aquarium_id),
+        "parameter": parameter_slug,
         "target": threshold.target,
         "min": threshold.min,
         "max": threshold.max,
@@ -158,7 +160,7 @@ def build_aquarium_parameter_threshold_router() -> APIRouter:
 
     @router.put("/{aquarium_id}/thresholds/{parameter}", response_model=ThresholdResponse)
     async def set_threshold(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         parameter: str,
         request: Request,
         payload: SetThresholdRequest = Body(...),
@@ -173,24 +175,26 @@ def build_aquarium_parameter_threshold_router() -> APIRouter:
 
         parameter_repo = ParameterRepository(session)
         normalized_parameter = _normalize_parameter(parameter, parameter_repo)
-        _validate_threshold_values(normalized_parameter, payload)
+        _validate_threshold_values(normalized_parameter.slug, payload)
 
         threshold_repo = AquariumParameterThresholdRepository(session)
         threshold = threshold_repo.upsert(
             aquarium_id=aquarium.id,
             owner_user_id=current_user.user.id,
-            parameter=normalized_parameter,
+            parameter_id=normalized_parameter.id,
             target=payload.target,
             min=payload.min,
             max=payload.max,
-            unit=THRESHOLD_UNITS[normalized_parameter],
+            unit=THRESHOLD_UNITS[normalized_parameter.slug],
         )
 
-        return success_response(_to_payload(threshold), request_id=request_id)
+        return success_response(
+            _to_payload(threshold, normalized_parameter.slug), request_id=request_id
+        )
 
     @router.get("/{aquarium_id}/thresholds/{parameter}", response_model=ThresholdResponse)
     async def get_threshold(
-        aquarium_id: str,
+        aquarium_id: uuid.UUID,
         parameter: str,
         request: Request,
         current_user: AuthenticatedUser = Depends(get_current_user),
@@ -208,13 +212,15 @@ def build_aquarium_parameter_threshold_router() -> APIRouter:
         threshold = threshold_repo.get_by_aquarium_and_parameter(
             aquarium_id=aquarium.id,
             owner_user_id=current_user.user.id,
-            parameter=normalized_parameter,
+            parameter_id=normalized_parameter.id,
         )
         if threshold is None:
             return success_response(
-                _empty_payload(aquarium.id, normalized_parameter), request_id=request_id
+                _empty_payload(aquarium.id, normalized_parameter.slug), request_id=request_id
             )
 
-        return success_response(_to_payload(threshold), request_id=request_id)
+        return success_response(
+            _to_payload(threshold, normalized_parameter.slug), request_id=request_id
+        )
 
     return router

@@ -10,6 +10,7 @@ from src.aquarium_measurement_repository import (
 )
 from src.aquarium_repository import AquariumRepository
 from src.db import Base
+from src.models import Parameter
 from src.user_repository import UserRepository
 
 
@@ -27,8 +28,17 @@ def _build_repos(tmp_path):
     )
 
 
+def _create_parameter(session, slug: str) -> Parameter:
+    parameter = Parameter(slug=slug, display_name=slug.title(), description=None)
+    session.add(parameter)
+    session.commit()
+    session.refresh(parameter)
+    return parameter
+
+
 def test_measurement_repository_create_list_and_filters(tmp_path):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    _create_parameter(session, "salinity")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner")
     other = user_repo.resolve_or_create("https://issuer.example.com", "other")
 
@@ -74,7 +84,8 @@ def test_measurement_repository_create_list_and_filters(tmp_path):
 
 
 def test_measurement_repository_rejects_duplicate_timestamp(tmp_path):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    _create_parameter(session, "salinity")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner")
     aquarium = aquarium_repo.create(
         owner_user_id=owner.id,
@@ -105,7 +116,9 @@ def test_measurement_repository_rejects_duplicate_timestamp(tmp_path):
 
 
 def test_measurement_repository_generic_create_and_filtering(tmp_path):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    salinity_parameter = _create_parameter(session, "salinity")
+    phosphate_parameter = _create_parameter(session, "phosphate")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-generic")
 
     aquarium = aquarium_repo.create(
@@ -118,7 +131,7 @@ def test_measurement_repository_generic_create_and_filtering(tmp_path):
     salinity = measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="salinity",
+        parameter_id=salinity_parameter.id,
         value=35.0,
         unit="ppt",
         raw_value=35.0,
@@ -128,7 +141,7 @@ def test_measurement_repository_generic_create_and_filtering(tmp_path):
     phosphate = measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         value=0.08,
         unit="ppm",
         raw_value=0.08,
@@ -142,13 +155,14 @@ def test_measurement_repository_generic_create_and_filtering(tmp_path):
     phosphate_rows = measurement_repo.list_measurements(
         aquarium.id,
         owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
     )
     assert [m.id for m in phosphate_rows] == [phosphate.id]
 
 
 def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    phosphate_parameter = _create_parameter(session, "phosphate")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-phosphate")
 
     aquarium = aquarium_repo.create(
@@ -162,7 +176,7 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
     measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         value=0.09,
         unit="ppm",
         raw_value=0.09,
@@ -174,7 +188,7 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
         measurement_repo.create_measurement(
             aquarium_id=aquarium.id,
             owner_user_id=owner.id,
-            parameter="phosphate",
+            parameter_id=phosphate_parameter.id,
             value=0.10,
             unit="ppm",
             raw_value=0.10,
@@ -184,7 +198,8 @@ def test_measurement_repository_rejects_duplicate_phosphate_timestamp(tmp_path):
 
 
 def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    phosphate_parameter = _create_parameter(session, "phosphate")
     owner = user_repo.resolve_or_create("https://issuer.example.com", "owner-delete")
 
     aquarium = aquarium_repo.create(
@@ -197,7 +212,7 @@ def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
     created = measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         value=0.08,
         unit="ppm",
         raw_value=0.08,
@@ -207,13 +222,13 @@ def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
 
     assert measurement_repo.delete_measurement(
         aquarium_id=aquarium.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         measurement_id=created.id,
     )
 
     assert not measurement_repo.delete_measurement(
         aquarium_id=aquarium.id,
-        parameter="phosphate",
+        parameter_id=phosphate_parameter.id,
         measurement_id=created.id,
     )
 
@@ -231,7 +246,8 @@ def test_measurement_repository_delete_by_id_and_parameter(tmp_path):
     ],
 )
 def test_measurement_repository_persists_new_parameters(tmp_path, parameter, value, unit):
-    aquarium_repo, measurement_repo, user_repo, _ = _build_repos(tmp_path)
+    aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
+    parameter_row = _create_parameter(session, parameter)
     owner = user_repo.resolve_or_create("https://issuer.example.com", f"owner-{parameter}")
 
     aquarium = aquarium_repo.create(
@@ -245,7 +261,7 @@ def test_measurement_repository_persists_new_parameters(tmp_path, parameter, val
     created = measurement_repo.create_measurement(
         aquarium_id=aquarium.id,
         owner_user_id=owner.id,
-        parameter=parameter,
+        parameter_id=parameter_row.id,
         value=value,
         unit=unit,
         raw_value=value,
@@ -253,7 +269,7 @@ def test_measurement_repository_persists_new_parameters(tmp_path, parameter, val
         measured_at=measured_at,
     )
 
-    rows = measurement_repo.list_measurements(aquarium.id, owner.id, parameter=parameter)
+    rows = measurement_repo.list_measurements(aquarium.id, owner.id, parameter_id=parameter_row.id)
     assert [row.id for row in rows] == [created.id]
     assert rows[0].value == value
     assert rows[0].unit == unit
@@ -262,7 +278,7 @@ def test_measurement_repository_persists_new_parameters(tmp_path, parameter, val
         measurement_repo.create_measurement(
             aquarium_id=aquarium.id,
             owner_user_id=owner.id,
-            parameter=parameter,
+            parameter_id=parameter_row.id,
             value=value,
             unit=unit,
             raw_value=value,
