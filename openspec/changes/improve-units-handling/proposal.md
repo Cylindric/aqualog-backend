@@ -14,6 +14,7 @@ Units of measurement (`ppt`, `celsius`, `ppm`, `pH`, etc.) currently exist only 
 - Existing per-parameter conversion functions (`_to_ppt`, `_to_celsius`, etc.) and canonicalization behavior are preserved as-is, now looked up/validated against the DB catalog rather than Python constants.
 - Data migration backfills `units` and `parameter_units` from the current hardcoded constants, then backfills `unit_id`/`raw_unit_id` on existing `aquarium_measurements` rows before dropping the old string columns.
 - Out of scope: `aquarium_parameter_thresholds.unit` keeps its current string column for now (same shape/problem, left as a candidate follow-up change to avoid growing this change's blast radius).
+- **BREAKING (minor)**: `raw_unit` in measurement responses for `ammonia`, `ph`, and `alkalinity` now returns catalog casing (`mg/L`, `pH`, `dKH`) instead of the previously-lowercased form (`mg/l`, `ph`, `dkh`) the create-request validator produced. `unit` is unchanged for all parameters. See design.md for why this is unavoidable under a single-row-per-unit catalog.
 
 ## Capabilities
 
