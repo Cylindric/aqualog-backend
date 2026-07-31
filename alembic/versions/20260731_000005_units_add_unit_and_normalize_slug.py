@@ -29,6 +29,10 @@ def upgrade() -> None:
     op.alter_column("units", "unit", nullable=False)
 
     op.execute("UPDATE units SET slug = lower(replace(slug, '/', '_'))")
+    op.execute("UPDATE units SET unit = 'US Gal' WHERE unit = 'gal_us'")
+    op.execute("UPDATE units SET unit = 'SG' WHERE unit = 'sg'")
+    op.execute("UPDATE units SET unit = '°C' WHERE unit = 'celsius'")
+    op.execute("UPDATE units SET unit = '°F' WHERE unit = 'fahrenheit'")
 
     op.drop_index(IX_UNITS_SLUG_LOWER, table_name="units")
     op.create_index(IX_UNITS_SLUG, "units", ["slug"], unique=True)
