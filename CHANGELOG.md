@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.11.0 (2026-07-31)
+
+### Feat
+
+- add parameter list to database
+
 ## v0.10.1 (2026-07-31)
 
 ### Fix
