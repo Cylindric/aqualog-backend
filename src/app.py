@@ -24,6 +24,7 @@ from src.logging_middleware import RequestLoggingMiddleware
 from src.parameters import build_parameter_router
 from src.profile import build_profile_router
 from src.responses import error_response, success_response
+from src.units import build_unit_router
 
 # Custom JSON formatter
 
@@ -156,6 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(build_aquarium_measurement_router(), prefix=versioned_prefix)
     app.include_router(build_aquarium_parameter_threshold_router(), prefix=versioned_prefix)
     app.include_router(build_parameter_router(), prefix=versioned_prefix)
+    app.include_router(build_unit_router(), prefix=versioned_prefix)
 
     @app.get("/")
     async def root(request: Request):

@@ -4,8 +4,18 @@ import uuid
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db import Base
 
@@ -90,6 +100,52 @@ class Parameter(Base):
     )
 
 
+class Unit(Base):
+    __tablename__ = "units"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
+    slug: Mapped[str] = mapped_column(String(16), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_now,
+        onupdate=_utc_now,
+    )
+
+
+Index("ix_units_slug_lower", func.lower(Unit.slug), unique=True)
+
+
+class ParameterUnit(Base):
+    __tablename__ = "parameter_units"
+
+    parameter_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("parameters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    unit_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("units.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    is_canonical: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+Index(
+    "uq_parameter_units_canonical_per_parameter",
+    ParameterUnit.parameter_id,
+    unique=True,
+    sqlite_where=ParameterUnit.is_canonical.is_(True),
+    postgresql_where=ParameterUnit.is_canonical.is_(True),
+)
+
+
 class AquariumParameterThreshold(Base):
     __tablename__ = "aquarium_parameter_thresholds"
     __table_args__ = (
@@ -153,12 +209,25 @@ class AquariumMeasurement(Base):
         index=True,
     )
     value: Mapped[float] = mapped_column(Float, nullable=False)
-    unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    unit_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("units.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     raw_value: Mapped[float] = mapped_column(Float, nullable=False)
-    raw_unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    raw_unit_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(),
+        ForeignKey("units.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     measured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utc_now
     )
+
+    unit: Mapped[Unit] = relationship("Unit", foreign_keys=[unit_id])
+    raw_unit: Mapped[Unit] = relationship("Unit", foreign_keys=[raw_unit_id])
