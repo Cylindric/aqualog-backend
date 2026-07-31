@@ -12,6 +12,7 @@ from src.aquarium_measurement_repository import (
 from src.aquarium_repository import AquariumRepository
 from src.db import Base
 from src.models import Parameter, Unit
+from src.unit_slug import slugify_unit
 from src.user_repository import UserRepository
 
 
@@ -44,15 +45,15 @@ def _create_parameter(session, slug: str) -> Parameter:
     return parameter
 
 
-def _create_unit(session, slug: str) -> Unit:
-    existing = session.query(Unit).filter(Unit.slug == slug).one_or_none()
+def _create_unit(session, unit: str) -> Unit:
+    existing = session.query(Unit).filter(Unit.unit == unit).one_or_none()
     if existing is not None:
         return existing
-    unit = Unit(slug=slug, display_name=slug, description=None)
-    session.add(unit)
+    unit_row = Unit(unit=unit, slug=slugify_unit(unit), display_name=unit, description=None)
+    session.add(unit_row)
     session.commit()
-    session.refresh(unit)
-    return unit
+    session.refresh(unit_row)
+    return unit_row
 
 
 def test_measurement_repository_create_list_and_filters(tmp_path):
@@ -90,8 +91,8 @@ def test_measurement_repository_create_list_and_filters(tmp_path):
     all_rows = measurement_repo.list_salinity(aquarium.id, owner.id)
     assert [m.id for m in all_rows] == [m1.id, m2.id]
     assert all_rows[0].raw_value == 1.026
-    assert all_rows[0].raw_unit.slug == "sg"
-    assert all_rows[1].unit.slug == "ppt"
+    assert all_rows[0].raw_unit.unit == "sg"
+    assert all_rows[1].unit.unit == "ppt"
 
     filtered_rows = measurement_repo.list_salinity(
         aquarium.id,
@@ -334,7 +335,7 @@ def test_measurement_repository_persists_new_parameters(tmp_path, parameter, val
     rows = measurement_repo.list_measurements(aquarium.id, owner.id, parameter_id=parameter_row.id)
     assert [row.id for row in rows] == [created.id]
     assert rows[0].value == value
-    assert rows[0].unit.slug == unit
+    assert rows[0].unit.unit == unit
 
     with pytest.raises(DuplicateAquariumMeasurementError):
         measurement_repo.create_measurement(

@@ -35,49 +35,69 @@ def _build_repos(tmp_path):
 def test_unit_repository_crud(tmp_path):
     unit_repo, _, _, _, _ = _build_repos(tmp_path)
 
-    assert unit_repo.get_by_slug("iron-unit") is None
+    assert unit_repo.get_by_unit("mol/L") is None
 
     created = unit_repo.create(
-        slug="mol/L", display_name="Moles per Litre", description="Molar concentration."
+        unit="mol/L", display_name="Moles per Litre", description="Molar concentration."
     )
-    assert created.slug == "mol/L"
+    assert created.unit == "mol/L"
+    assert created.slug == "mol_l"
     assert created.display_name == "Moles per Litre"
 
-    fetched = unit_repo.get_by_slug("mol/L")
+    fetched = unit_repo.get_by_slug("mol_l")
     assert fetched is not None
     assert fetched.id == created.id
+    assert fetched.unit == "mol/L"
 
     all_units = unit_repo.list_all()
-    assert [u.slug for u in all_units] == ["mol/L"]
+    assert [u.slug for u in all_units] == ["mol_l"]
 
     updated = unit_repo.update_by_slug(
-        "mol/L", {"display_name": "mol/L (updated)", "description": "Updated description."}
+        "mol_l", {"display_name": "mol/L (updated)", "description": "Updated description."}
     )
     assert updated is not None
     assert updated.display_name == "mol/L (updated)"
     assert updated.description == "Updated description."
 
-    assert unit_repo.delete_by_slug("mol/L") is True
-    assert unit_repo.get_by_slug("mol/L") is None
+    assert unit_repo.delete_by_slug("mol_l") is True
+    assert unit_repo.get_by_slug("mol_l") is None
 
 
-def test_unit_repository_get_by_slug_is_case_insensitive(tmp_path):
+def test_unit_repository_slug_is_derived_lowercase_without_slashes(tmp_path):
     unit_repo, _, _, _, _ = _build_repos(tmp_path)
 
-    unit_repo.create(slug="pH", display_name="pH", description=None)
+    mixed_case = unit_repo.create(unit="pH", display_name="pH", description=None)
+    assert mixed_case.slug == "ph"
 
+    with_slash = unit_repo.create(
+        unit="mg/L", display_name="Milligrams per Litre", description=None
+    )
+    assert with_slash.slug == "mg_l"
+    assert "/" not in with_slash.slug
+
+
+def test_unit_repository_get_by_slug_and_get_by_unit(tmp_path):
+    unit_repo, _, _, _, _ = _build_repos(tmp_path)
+
+    unit_repo.create(unit="pH", display_name="pH", description=None)
+
+    # get_by_slug lowercases its input, so any casing of the (already-normalized) slug matches.
     assert unit_repo.get_by_slug("ph") is not None
     assert unit_repo.get_by_slug("PH") is not None
-    assert unit_repo.get_by_slug("Ph") is not None
+
+    # get_by_unit matches against the notation column, case-insensitively.
+    assert unit_repo.get_by_unit("ph") is not None
+    assert unit_repo.get_by_unit("PH") is not None
+    assert unit_repo.get_by_unit("pH") is not None
 
 
-def test_unit_repository_duplicate_slug_is_rejected_case_insensitively(tmp_path):
+def test_unit_repository_units_that_derive_the_same_slug_are_rejected(tmp_path):
     unit_repo, _, _, _, _ = _build_repos(tmp_path)
 
-    unit_repo.create(slug="pH", display_name="pH", description=None)
+    unit_repo.create(unit="pH", display_name="pH", description=None)
 
     with pytest.raises(DuplicateUnitSlugError):
-        unit_repo.create(slug="PH", display_name="pH again", description=None)
+        unit_repo.create(unit="PH", display_name="pH again", description=None)
 
 
 def test_unit_repository_update_and_delete_missing_slug_are_no_ops(tmp_path):
@@ -90,7 +110,7 @@ def test_unit_repository_update_and_delete_missing_slug_are_no_ops(tmp_path):
 def test_unit_repository_delete_blocked_while_referenced_by_measurement(tmp_path):
     unit_repo, aquarium_repo, measurement_repo, user_repo, session = _build_repos(tmp_path)
 
-    ppt_unit = unit_repo.create(slug="ppt", display_name="Parts per Thousand", description=None)
+    ppt_unit = unit_repo.create(unit="ppt", display_name="Parts per Thousand", description=None)
     salinity_parameter = Parameter(slug="salinity", display_name="Salinity", description=None)
     session.add(salinity_parameter)
     session.commit()
@@ -127,7 +147,7 @@ def test_unit_repository_delete_blocked_while_referenced_by_measurement(tmp_path
 def test_unit_repository_delete_blocked_while_referenced_by_parameter_unit(tmp_path):
     unit_repo, _, _, _, session = _build_repos(tmp_path)
 
-    ppt_unit = unit_repo.create(slug="ppt", display_name="Parts per Thousand", description=None)
+    ppt_unit = unit_repo.create(unit="ppt", display_name="Parts per Thousand", description=None)
     salinity_parameter = Parameter(slug="salinity", display_name="Salinity", description=None)
     session.add(salinity_parameter)
     session.commit()
@@ -145,8 +165,8 @@ def test_unit_repository_delete_blocked_while_referenced_by_parameter_unit(tmp_p
 def test_unit_repository_list_units_and_canonical_unit_for_parameter(tmp_path):
     unit_repo, _, _, _, session = _build_repos(tmp_path)
 
-    ppt_unit = unit_repo.create(slug="ppt", display_name="Parts per Thousand", description=None)
-    sg_unit = unit_repo.create(slug="sg", display_name="Specific Gravity", description=None)
+    ppt_unit = unit_repo.create(unit="ppt", display_name="Parts per Thousand", description=None)
+    sg_unit = unit_repo.create(unit="sg", display_name="Specific Gravity", description=None)
     salinity_parameter = Parameter(slug="salinity", display_name="Salinity", description=None)
     session.add(salinity_parameter)
     session.commit()
@@ -174,5 +194,5 @@ def test_unit_repository_list_units_and_canonical_unit_for_parameter(tmp_path):
     assert unit_repo.is_unit_valid_for_parameter(salinity_parameter.id, ppt_unit.id) is True
     assert unit_repo.is_unit_valid_for_parameter(salinity_parameter.id, sg_unit.id) is True
 
-    other_unit = unit_repo.create(slug="celsius", display_name="Celsius", description=None)
+    other_unit = unit_repo.create(unit="celsius", display_name="Celsius", description=None)
     assert unit_repo.is_unit_valid_for_parameter(salinity_parameter.id, other_unit.id) is False

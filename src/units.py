@@ -14,6 +14,7 @@ from src.user_service import AuthenticatedUser
 
 class UnitPayload(BaseModel):
     slug: str
+    unit: str
     display_name: str
     description: str | None
     created_at: str
@@ -43,10 +44,10 @@ class DeleteUnitResponse(BaseModel):
     data: DeleteUnitPayload
 
 
-def _validate_slug(value: str) -> str:
+def _validate_unit(value: str) -> str:
     trimmed = value.strip()
     if not trimmed:
-        raise ValueError("slug must not be empty")
+        raise ValueError("unit must not be empty")
     return trimmed
 
 
@@ -60,14 +61,14 @@ def _validate_display_name(value: str) -> str:
 class CreateUnitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    slug: str = Field(..., min_length=1, max_length=16)
+    unit: str = Field(..., min_length=1, max_length=16)
     display_name: str = Field(..., min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
 
-    @field_validator("slug")
+    @field_validator("unit")
     @classmethod
-    def validate_slug(cls, value: str) -> str:
-        return _validate_slug(value)
+    def validate_unit(cls, value: str) -> str:
+        return _validate_unit(value)
 
     @field_validator("display_name")
     @classmethod
@@ -92,6 +93,7 @@ class UpdateUnitRequest(BaseModel):
 def _to_payload(unit: Unit) -> dict[str, str | None]:
     return {
         "slug": unit.slug,
+        "unit": unit.unit,
         "display_name": unit.display_name,
         "description": unit.description,
         "created_at": unit.created_at.isoformat(),
@@ -124,7 +126,7 @@ def build_unit_router() -> APIRouter:
         units = repository.list_all()
         return success_response([_to_payload(u) for u in units], request_id=request_id)
 
-    @router.get("/{slug:path}", response_model=UnitResponse)
+    @router.get("/{slug}", response_model=UnitResponse)
     async def get_unit(
         slug: str,
         request: Request,
@@ -149,7 +151,7 @@ def build_unit_router() -> APIRouter:
         repository = UnitRepository(session)
         try:
             unit = repository.create(
-                slug=payload.slug,
+                unit=payload.unit,
                 display_name=payload.display_name,
                 description=payload.description,
             )
@@ -160,7 +162,7 @@ def build_unit_router() -> APIRouter:
             _to_payload(unit), request_id=request_id, status_code=status.HTTP_201_CREATED
         )
 
-    @router.patch("/{slug:path}", response_model=UnitResponse)
+    @router.patch("/{slug}", response_model=UnitResponse)
     async def update_unit(
         slug: str,
         request: Request,
@@ -178,7 +180,7 @@ def build_unit_router() -> APIRouter:
 
         return success_response(_to_payload(unit), request_id=request_id)
 
-    @router.delete("/{slug:path}", response_model=DeleteUnitResponse)
+    @router.delete("/{slug}", response_model=DeleteUnitResponse)
     async def delete_unit(
         slug: str,
         request: Request,
@@ -186,7 +188,7 @@ def build_unit_router() -> APIRouter:
         session: Session = Depends(get_session),
     ):
         request_id = getattr(request.state, "request_id", "unknown")
-        normalized_slug = slug.strip()
+        normalized_slug = slug.strip().lower()
         repository = UnitRepository(session)
         try:
             deleted = repository.delete_by_slug(normalized_slug)

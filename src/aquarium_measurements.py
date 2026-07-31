@@ -300,7 +300,7 @@ def _validate_measurement_payload(
     parameter: Parameter, value: float, unit: str, unit_repo: UnitRepository
 ) -> Unit:
     rule = PARAMETER_RULES[parameter.slug]
-    unit_row = unit_repo.get_by_slug(unit)
+    unit_row = unit_repo.get_by_unit(unit)
     if unit_row is None or not unit_repo.is_unit_valid_for_parameter(parameter.id, unit_row.id):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -333,9 +333,9 @@ def _to_payload(measurement: AquariumMeasurement, parameter_slug: str) -> dict[s
         "aquarium_id": str(measurement.aquarium_id),
         "parameter": parameter_slug,
         "value": measurement.value,
-        "unit": measurement.unit.slug,
+        "unit": measurement.unit.unit,
         "raw_value": measurement.raw_value,
-        "raw_unit": measurement.raw_unit.slug,
+        "raw_unit": measurement.raw_unit.unit,
         "measured_at": _to_utc_iso(measurement.measured_at),
         "created_at": _to_utc_iso(measurement.created_at),
     }
@@ -372,14 +372,16 @@ def build_aquarium_measurement_router() -> APIRouter:
 
         measurement_repo = AquariumMeasurementRepository(session)
         normalized_measured_at = _normalize_timestamp(payload.measured_at)
-        canonical_value, canonical_unit_slug = _canonicalize_measurement(
+        canonical_value, canonical_unit_notation = _canonicalize_measurement(
             normalized_parameter.slug,
             payload.value,
             payload.unit,
         )
-        canonical_unit_row = unit_repo.get_by_slug(canonical_unit_slug)
+        canonical_unit_row = unit_repo.get_by_unit(canonical_unit_notation)
         if canonical_unit_row is None:
-            raise RuntimeError(f"Canonical unit '{canonical_unit_slug}' missing from unit catalog")
+            raise RuntimeError(
+                f"Canonical unit '{canonical_unit_notation}' missing from unit catalog"
+            )
 
         try:
             measurement = measurement_repo.create_measurement(

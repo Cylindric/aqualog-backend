@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.models import ParameterUnit, Unit
+from src.unit_slug import slugify_unit
 
 
 class DuplicateUnitSlugError(ValueError):
@@ -25,18 +26,26 @@ class UnitRepository:
         return self.session.query(Unit).order_by(Unit.slug.asc()).all()
 
     def get_by_slug(self, slug: str) -> Unit | None:
-        return self.session.query(Unit).filter(func.lower(Unit.slug) == slug.lower()).one_or_none()
+        return self.session.query(Unit).filter(Unit.slug == slug.lower()).one_or_none()
 
-    def create(self, slug: str, display_name: str, description: str | None) -> Unit:
-        unit = Unit(slug=slug, display_name=display_name, description=description)
-        self.session.add(unit)
+    def get_by_unit(self, unit: str) -> Unit | None:
+        return self.session.query(Unit).filter(func.lower(Unit.unit) == unit.lower()).one_or_none()
+
+    def create(self, unit: str, display_name: str, description: str | None) -> Unit:
+        unit_row = Unit(
+            unit=unit,
+            slug=slugify_unit(unit),
+            display_name=display_name,
+            description=description,
+        )
+        self.session.add(unit_row)
         try:
             self.session.commit()
         except IntegrityError as exc:
             self.session.rollback()
             raise DuplicateUnitSlugError("Unit slug must be unique") from exc
-        self.session.refresh(unit)
-        return unit
+        self.session.refresh(unit_row)
+        return unit_row
 
     def update_by_slug(self, slug: str, updates: dict[str, str | None]) -> Unit | None:
         unit = self.get_by_slug(slug)

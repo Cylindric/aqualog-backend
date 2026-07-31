@@ -87,7 +87,7 @@ def test_parameter_repository_delete_blocked_while_referenced_by_measurement(tmp
     salinity_parameter = parameter_repo.create(
         slug="salinity", display_name="Salinity", description=None
     )
-    ppt_unit = Unit(slug="ppt", display_name="Parts per Thousand", description=None)
+    ppt_unit = Unit(unit="ppt", slug="ppt", display_name="Parts per Thousand", description=None)
     session.add(ppt_unit)
     session.commit()
     session.refresh(ppt_unit)

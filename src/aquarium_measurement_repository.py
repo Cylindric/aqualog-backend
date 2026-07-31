@@ -32,9 +32,9 @@ class AquariumMeasurementRepository:
             owner_user_id=owner_user_id,
             parameter_id=self._salinity_parameter_id(),
             value=value_ppt,
-            unit_id=self._unit_id_by_slug("ppt"),
+            unit_id=self._unit_id_by_notation("ppt"),
             raw_value=raw_value,
-            raw_unit_id=self._unit_id_by_slug(raw_unit),
+            raw_unit_id=self._unit_id_by_notation(raw_unit),
             measured_at=measured_at,
         )
 
@@ -144,5 +144,5 @@ class AquariumMeasurementRepository:
     def _salinity_parameter_id(self) -> uuid.UUID:
         return self.session.query(Parameter.id).filter(Parameter.slug == "salinity").one()[0]
 
-    def _unit_id_by_slug(self, slug: str) -> uuid.UUID:
-        return self.session.query(Unit.id).filter(func.lower(Unit.slug) == slug.lower()).one()[0]
+    def _unit_id_by_notation(self, unit: str) -> uuid.UUID:
+        return self.session.query(Unit.id).filter(func.lower(Unit.unit) == unit.lower()).one()[0]

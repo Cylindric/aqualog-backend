@@ -12,10 +12,10 @@ SEEDED_SLUGS = {
     "celsius",
     "fahrenheit",
     "ppm",
-    "mg/L",
-    "pH",
-    "dKH",
-    "L",
+    "mg_l",
+    "ph",
+    "dkh",
+    "l",
     "gal_us",
 }
 
@@ -43,7 +43,7 @@ def test_unit_endpoints_require_authentication(auth_settings):
         assert (
             client.post(
                 "/api/v1/units",
-                json={"slug": "mol/L", "display_name": "Moles per Litre"},
+                json={"unit": "mol/L", "display_name": "Moles per Litre"},
             ).status_code
             == 401
         )
@@ -68,9 +68,13 @@ def test_list_units_returns_seeded_catalog(create_valid_token, auth_settings, mo
             assert response.status_code == 200
             slugs = {item["slug"] for item in response.json()["data"]}
             assert slugs == SEEDED_SLUGS
+            units = {item["unit"] for item in response.json()["data"]}
+            assert "mg/L" in units
+            assert "pH" in units
+            assert "dKH" in units
 
 
-def test_get_unit_by_slug_is_case_insensitive(create_valid_token, auth_settings, mock_jwks):
+def test_get_unit_by_slug(create_valid_token, auth_settings, mock_jwks):
     token = create_valid_token(sub="unit-catalog-getter", aud="test-client-id")
     app = create_app(auth_settings)
 
@@ -80,13 +84,18 @@ def test_get_unit_by_slug_is_case_insensitive(create_valid_token, auth_settings,
             response = client.get("/api/v1/units/ph", headers=_auth_header(token))
             assert response.status_code == 200
             data = response.json()["data"]
-            assert data["slug"] == "pH"
+            assert data["slug"] == "ph"
+            assert data["unit"] == "pH"
+
+            slash_unit = client.get("/api/v1/units/mg_l", headers=_auth_header(token))
+            assert slash_unit.status_code == 200
+            assert slash_unit.json()["data"]["unit"] == "mg/L"
 
             not_found = client.get("/api/v1/units/unobtainium", headers=_auth_header(token))
             assert not_found.status_code == 404
 
 
-def test_create_unit_happy_path_preserves_casing(create_valid_token, auth_settings, mock_jwks):
+def test_create_unit_derives_slug_from_unit(create_valid_token, auth_settings, mock_jwks):
     token = create_valid_token(sub="unit-catalog-creator", aud="test-client-id")
     app = create_app(auth_settings)
 
@@ -97,22 +106,24 @@ def test_create_unit_happy_path_preserves_casing(create_valid_token, auth_settin
                 "/api/v1/units",
                 headers=_auth_header(token),
                 json={
-                    "slug": " mol/L ",
+                    "unit": " mol/L ",
                     "display_name": "Moles per Litre",
                     "description": "Molar concentration.",
                 },
             )
             assert create_response.status_code == 201
             created = create_response.json()["data"]
-            assert created["slug"] == "mol/L"
+            assert created["unit"] == "mol/L"
+            assert created["slug"] == "mol_l"
+            assert "/" not in created["slug"]
             assert created["display_name"] == "Moles per Litre"
 
             list_response = client.get("/api/v1/units", headers=_auth_header(token))
             slugs = {item["slug"] for item in list_response.json()["data"]}
-            assert "mol/L" in slugs
+            assert "mol_l" in slugs
 
 
-def test_create_unit_duplicate_slug_is_rejected_case_insensitively(
+def test_create_unit_that_derives_an_existing_slug_is_rejected(
     create_valid_token, auth_settings, mock_jwks
 ):
     token = create_valid_token(sub="unit-catalog-duplicate", aud="test-client-id")
@@ -124,7 +135,7 @@ def test_create_unit_duplicate_slug_is_rejected_case_insensitively(
             duplicate = client.post(
                 "/api/v1/units",
                 headers=_auth_header(token),
-                json={"slug": "PH", "display_name": "pH again"},
+                json={"unit": "PH", "display_name": "pH again"},
             )
             assert duplicate.status_code == 409
 
@@ -139,21 +150,21 @@ def test_create_unit_validation_errors(create_valid_token, auth_settings, mock_j
             missing_display_name = client.post(
                 "/api/v1/units",
                 headers=_auth_header(token),
-                json={"slug": "mol/L"},
+                json={"unit": "mol/L"},
             )
             assert missing_display_name.status_code == 422
 
-            empty_slug = client.post(
+            empty_unit = client.post(
                 "/api/v1/units",
                 headers=_auth_header(token),
-                json={"slug": "   ", "display_name": "Moles per Litre"},
+                json={"unit": "   ", "display_name": "Moles per Litre"},
             )
-            assert empty_slug.status_code == 422
+            assert empty_unit.status_code == 422
 
             empty_display_name = client.post(
                 "/api/v1/units",
                 headers=_auth_header(token),
-                json={"slug": "mol/L", "display_name": "   "},
+                json={"unit": "mol/L", "display_name": "   "},
             )
             assert empty_display_name.status_code == 422
 
@@ -184,19 +195,26 @@ def test_update_unit_editable_including_seeded_rows(create_valid_token, auth_set
             assert not_found.status_code == 404
 
 
-def test_update_unit_rejects_slug_change(create_valid_token, auth_settings, mock_jwks):
+def test_update_unit_rejects_slug_or_unit_change(create_valid_token, auth_settings, mock_jwks):
     token = create_valid_token(sub="unit-catalog-slug-lock", aud="test-client-id")
     app = create_app(auth_settings)
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
         mock_get_keys.return_value = mock_jwks
         with TestClient(app) as client:
-            response = client.patch(
+            slug_change = client.patch(
                 "/api/v1/units/ppt",
                 headers=_auth_header(token),
                 json={"slug": "parts-per-thousand"},
             )
-            assert response.status_code == 422
+            assert slug_change.status_code == 422
+
+            unit_change = client.patch(
+                "/api/v1/units/ppt",
+                headers=_auth_header(token),
+                json={"unit": "parts-per-thousand"},
+            )
+            assert unit_change.status_code == 422
 
 
 def test_delete_unreferenced_unit_succeeds(create_valid_token, auth_settings, mock_jwks):
@@ -209,17 +227,17 @@ def test_delete_unreferenced_unit_succeeds(create_valid_token, auth_settings, mo
             client.post(
                 "/api/v1/units",
                 headers=_auth_header(token),
-                json={"slug": "mol/L", "display_name": "Moles per Litre"},
+                json={"unit": "mol/L", "display_name": "Moles per Litre"},
             )
 
-            deleted = client.delete("/api/v1/units/mol/L", headers=_auth_header(token))
+            deleted = client.delete("/api/v1/units/mol_l", headers=_auth_header(token))
             assert deleted.status_code == 200
-            assert deleted.json()["data"] == {"slug": "mol/L", "deleted": True}
+            assert deleted.json()["data"] == {"slug": "mol_l", "deleted": True}
 
-            not_found = client.get("/api/v1/units/mol/L", headers=_auth_header(token))
+            not_found = client.get("/api/v1/units/mol_l", headers=_auth_header(token))
             assert not_found.status_code == 404
 
-            missing_delete = client.delete("/api/v1/units/mol/L", headers=_auth_header(token))
+            missing_delete = client.delete("/api/v1/units/mol_l", headers=_auth_header(token))
             assert missing_delete.status_code == 404
 
 

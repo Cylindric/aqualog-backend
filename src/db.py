@@ -11,6 +11,7 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config import Settings
+from src.unit_slug import slugify_unit
 
 
 class Base(DeclarativeBase):
@@ -36,9 +37,11 @@ _SEED_PARAMETERS = (
     ("magnesium", "Magnesium", "Magnesium concentration, measured in ppm."),
 )
 
-# Mirrors the seed data inserted by the `20260731_000003_add_unit_catalog`
-# Alembic migration. Tests build their schema from model metadata rather than
-# running migrations, so the catalog must be seeded here to match.
+# Mirrors the seed data inserted by the `20260731_000003_add_unit_catalog` /
+# `20260731_000005_units_add_unit_and_normalize_slug` Alembic migrations. Tests build
+# their schema from model metadata rather than running migrations, so the catalog
+# must be seeded here to match. First element is the unit *notation* (`unit` column);
+# `slug` (URL-safe routing key) is derived from it via `slugify_unit`.
 _SEED_UNITS = (
     ("ppt", "Parts per Thousand", "Salinity concentration, measured in parts per thousand."),
     ("sg", "Specific Gravity", "Salinity measured as specific gravity relative to fresh water."),
@@ -52,7 +55,7 @@ _SEED_UNITS = (
     ("gal_us", "US Gallons", "Volume, measured in US gallons."),
 )
 
-# (parameter_slug, unit_slug, is_canonical)
+# (parameter_slug, unit_notation, is_canonical)
 _SEED_PARAMETER_UNITS = (
     ("salinity", "ppt", True),
     ("salinity", "sg", False),
@@ -175,13 +178,14 @@ def _seed_units(unit_model: type) -> None:
         now = datetime.now(timezone.utc)
         session.add_all(
             unit_model(
-                slug=slug,
+                unit=unit,
+                slug=slugify_unit(unit),
                 display_name=display_name,
                 description=description,
                 created_at=now,
                 updated_at=now,
             )
-            for slug, display_name, description in _SEED_UNITS
+            for unit, display_name, description in _SEED_UNITS
         )
         session.commit()
     finally:
@@ -198,13 +202,13 @@ def _seed_parameter_units(
     try:
         if session.query(parameter_unit_model).first() is not None:
             return
-        for parameter_slug, unit_slug, is_canonical in _SEED_PARAMETER_UNITS:
+        for parameter_slug, unit_notation, is_canonical in _SEED_PARAMETER_UNITS:
             parameter_id = (
                 session.query(parameter_model.id)
                 .filter(parameter_model.slug == parameter_slug)
                 .scalar()
             )
-            unit_id = session.query(unit_model.id).filter(unit_model.slug == unit_slug).scalar()
+            unit_id = session.query(unit_model.id).filter(unit_model.unit == unit_notation).scalar()
             session.add(
                 parameter_unit_model(
                     parameter_id=parameter_id,

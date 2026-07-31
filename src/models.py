@@ -13,7 +13,6 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     Uuid,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -104,7 +103,11 @@ class Unit(Base):
     __tablename__ = "units"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
-    slug: Mapped[str] = mapped_column(String(16), nullable=False)
+    # URL-safe routing key: lowercase, "/" replaced with "_" (e.g. "mg_l"). Derived
+    # from `unit` at creation time — see src/unit_slug.py::slugify_unit.
+    slug: Mapped[str] = mapped_column(String(16), nullable=False, unique=True, index=True)
+    # The actual unit notation as used in measurement data (e.g. "mg/L", "pH").
+    unit: Mapped[str] = mapped_column(String(16), nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -116,9 +119,6 @@ class Unit(Base):
         default=_utc_now,
         onupdate=_utc_now,
     )
-
-
-Index("ix_units_slug_lower", func.lower(Unit.slug), unique=True)
 
 
 class ParameterUnit(Base):
