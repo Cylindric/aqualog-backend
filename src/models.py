@@ -71,6 +71,24 @@ class Aquarium(Base):
     )
 
 
+class Parameter(Base):
+    __tablename__ = "parameters"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    slug: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_now,
+        onupdate=_utc_now,
+    )
+
+
 class AquariumParameterThreshold(Base):
     __tablename__ = "aquarium_parameter_thresholds"
     __table_args__ = (
@@ -88,7 +106,12 @@ class AquariumParameterThreshold(Base):
         nullable=False,
         index=True,
     )
-    parameter: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    parameter: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("parameters.slug", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     target: Mapped[float | None] = mapped_column(Float, nullable=True)
     min: Mapped[float | None] = mapped_column(Float, nullable=True)
     max: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -122,7 +145,12 @@ class AquariumMeasurement(Base):
         nullable=False,
         index=True,
     )
-    parameter: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    parameter: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("parameters.slug", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     value: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String(16), nullable=False)
     raw_value: Mapped[float] = mapped_column(Float, nullable=False)

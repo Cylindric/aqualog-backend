@@ -16,6 +16,7 @@ from src.aquarium_repository import AquariumRepository
 from src.auth import get_current_user
 from src.db import get_session
 from src.models import AquariumMeasurement
+from src.parameter_repository import ParameterRepository
 from src.responses import success_response
 from src.user_service import AuthenticatedUser
 
@@ -303,9 +304,9 @@ def _validate_measurement_payload(parameter: str, value: float, unit: str) -> No
     rule.validate_value(value, unit)
 
 
-def _normalize_parameter(value: str) -> str:
+def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> str:
     normalized = value.strip().lower()
-    if normalized not in PARAMETER_RULES:
+    if parameter_repo.get_by_slug(normalized) is None or normalized not in PARAMETER_RULES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Parameter must be one of: {', '.join(PARAMETER_RULES)}",
@@ -355,7 +356,8 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
         _validate_measurement_payload(normalized_parameter, payload.value, payload.unit)
 
         measurement_repo = AquariumMeasurementRepository(session)
@@ -403,7 +405,8 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
 
         measurement_repo = AquariumMeasurementRepository(session)
         if measured_from is not None:
@@ -435,7 +438,8 @@ def build_aquarium_measurement_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
         measurement_repo = AquariumMeasurementRepository(session)
         deleted = measurement_repo.delete_measurement(
             aquarium_id=aquarium.id,

@@ -141,6 +141,28 @@ def test_unsupported_threshold_parameter_is_rejected(create_valid_token, auth_se
             assert response.status_code == 422
 
 
+def test_threshold_rejects_parameter_removed_from_catalog(
+    create_valid_token, auth_settings, mock_jwks
+):
+    token = create_valid_token(sub="threshold-catalog-removed", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            deleted = client.delete("/api/v1/parameters/alkalinity", headers=_auth_header(token))
+            assert deleted.status_code == 200
+
+            response = client.put(
+                f"/api/v1/aquariums/{aquarium_id}/thresholds/alkalinity",
+                headers=_auth_header(token),
+                json={"target": 9.5},
+            )
+            assert response.status_code == 422
+
+
 def test_threshold_parameter_path_is_case_insensitive(create_valid_token, auth_settings, mock_jwks):
     token = create_valid_token(sub="threshold-case", aud="test-client-id")
     app = create_app(auth_settings)

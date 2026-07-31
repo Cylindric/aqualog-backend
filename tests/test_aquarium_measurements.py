@@ -732,6 +732,28 @@ def test_new_parameter_measurement_validation_and_duplicate_errors(
             assert cross_user_get.status_code == 404
 
 
+def test_measurement_rejects_parameter_removed_from_catalog(
+    create_valid_token, auth_settings, mock_jwks
+):
+    token = create_valid_token(sub="catalog-removed", aud="test-client-id")
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            aquarium_id = _create_aquarium(client, token)
+
+            deleted = client.delete("/api/v1/parameters/magnesium", headers=_auth_header(token))
+            assert deleted.status_code == 200
+
+            response = client.post(
+                f"/api/v1/aquariums/{aquarium_id}/measurements/magnesium",
+                headers=_auth_header(token),
+                json={"unit": "ppm", "value": 1300.0, "measured_at": "2026-07-01T12:00:00Z"},
+            )
+            assert response.status_code == 422
+
+
 def test_new_parameter_name_casing_and_whitespace_are_normalized(
     create_valid_token, auth_settings, mock_jwks
 ):

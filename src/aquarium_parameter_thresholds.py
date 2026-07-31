@@ -40,6 +40,7 @@ from src.aquarium_repository import AquariumRepository
 from src.auth import get_current_user
 from src.db import get_session
 from src.models import AquariumParameterThreshold
+from src.parameter_repository import ParameterRepository
 from src.responses import success_response
 from src.user_service import AuthenticatedUser
 
@@ -103,9 +104,12 @@ class ThresholdResponse(BaseModel):
     data: ThresholdPayload
 
 
-def _normalize_parameter(value: str) -> str:
+def _normalize_parameter(value: str, parameter_repo: ParameterRepository) -> str:
     normalized = value.strip().lower()
-    if normalized not in SUPPORTED_THRESHOLD_PARAMETERS:
+    if (
+        parameter_repo.get_by_slug(normalized) is None
+        or normalized not in SUPPORTED_THRESHOLD_PARAMETERS
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Parameter must be one of: {', '.join(SUPPORTED_THRESHOLD_PARAMETERS)}",
@@ -167,7 +171,8 @@ def build_aquarium_parameter_threshold_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
         _validate_threshold_values(normalized_parameter, payload)
 
         threshold_repo = AquariumParameterThresholdRepository(session)
@@ -197,7 +202,8 @@ def build_aquarium_parameter_threshold_router() -> APIRouter:
         if aquarium is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aquarium not found")
 
-        normalized_parameter = _normalize_parameter(parameter)
+        parameter_repo = ParameterRepository(session)
+        normalized_parameter = _normalize_parameter(parameter, parameter_repo)
         threshold_repo = AquariumParameterThresholdRepository(session)
         threshold = threshold_repo.get_by_aquarium_and_parameter(
             aquarium_id=aquarium.id,
