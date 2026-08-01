@@ -64,6 +64,16 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.13.0 (2026-08-01)
+
+### Feat
+
+- add configurable auth mode (oauth/none)
+
+### Fix
+
+- update taskfile with new fake-auth
+
 ## v0.12.1 (2026-08-01)
 
 ### Fix
