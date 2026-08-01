@@ -17,7 +17,7 @@ from src.aquarium_measurements import build_aquarium_measurement_router
 from src.aquarium_parameter_thresholds import build_aquarium_parameter_threshold_router
 from src.aquariums import build_aquarium_router
 from src.calculation import build_calculation_router
-from src.config import Settings, load_settings
+from src.config import Settings, ensure_auth_mode_configured, load_settings
 from src.db import init_database
 from src.health import ReadinessState, build_health_router
 from src.logging_middleware import RequestLoggingMiddleware
@@ -94,6 +94,7 @@ def configure_logging(level: str) -> logging.Logger:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
+    ensure_auth_mode_configured(settings)
     logger = configure_logging(settings.log_level)
     static_dir = Path(__file__).parent / "static"
     favicon_path = static_dir / "favicon.png"

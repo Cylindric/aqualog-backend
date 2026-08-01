@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,13 @@ from src.models import User
 class UserRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def get_by_id(self, user_id: str) -> User | None:
+        try:
+            parsed_id = uuid.UUID(user_id)
+        except (ValueError, AttributeError, TypeError):
+            return None
+        return self.session.get(User, parsed_id)
 
     def get_by_identity(self, oauth_issuer: str, oauth_subject: str) -> User | None:
         return (

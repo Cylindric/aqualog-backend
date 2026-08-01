@@ -5,13 +5,10 @@ Every request currently must pass through live OAuth2/OIDC validation against Au
 ## What Changes
 
 - Add a new `AQUALOG_AUTH_MODE` setting with two supported values: `oauth` (default) and `none`.
-- When `AQUALOG_AUTH_MODE=oauth`, authentication behaves exactly as it does today (OIDC discovery, JWKS, token validation, user resolution from token claims) — **no behavior change** for existing deployments that don't set the new variable.
+- When `AQUALOG_AUTH_MODE=oauth`, per-request authentication behaves exactly as it does today (OIDC discovery, JWKS, token validation, user resolution from token claims).
 - When `AQUALOG_AUTH_MODE=none`, a new `AQUALOG_AUTH_IMPERSONATE_USER_ID` setting is required and identifies the local `User` row (by id) that every request is authenticated as. No bearer token is required or checked in this mode.
-- Fail fast at request time (consistent with existing OAuth misconfiguration handling) with a clear 500 error if:
-  - `AQUALOG_AUTH_MODE` is set to an unsupported value, or
-  - `AQUALOG_AUTH_MODE=none` but `AQUALOG_AUTH_IMPERSONATE_USER_ID` is missing/blank, or
-  - `AQUALOG_AUTH_MODE=none` and the configured user id does not correspond to an existing `User` row (this one can only be checked at request time, since it needs a DB lookup; the other misconfigurations fail at app startup).
-- No breaking changes — `oauth` remains the default when `AQUALOG_AUTH_MODE` is unset.
+- The app now fails fast at startup (before it starts serving requests) if `AQUALOG_AUTH_MODE` is unsupported, or if the config required by the selected mode (`oauth`'s issuer/audience, or `none`'s impersonation user id) is missing. This is a behavior change from today, where a misconfigured-but-unset-mode app would still start and only 500 once a protected endpoint was hit — deployments that already set valid OAuth config are unaffected either way. Tooling that only needs DB config (e.g. `alembic`/`task db-migrate`) is unaffected, since this check runs only on the app-serving path, not on every `Settings` construction.
+- One thing can only be checked at request time, since it needs a DB lookup: `AQUALOG_AUTH_MODE=none` with a configured user id that doesn't correspond to an existing `User` row still returns a 500 per request rather than failing at startup.
 
 ## Capabilities
 
@@ -23,7 +20,8 @@ Every request currently must pass through live OAuth2/OIDC validation against Au
 
 ## Impact
 
-- `src/config.py`: new `auth_mode` / `auth_impersonate_user_id` settings fields and validation.
+- `src/config.py`: new `auth_mode` / `auth_impersonate_user_id` settings fields, plus an `ensure_auth_mode_configured()` fail-fast check.
+- `src/app.py`: `create_app()` calls `ensure_auth_mode_configured()` right after loading settings, before the app is returned.
 - `src/auth.py`: `get_current_user` branches on `settings.auth_mode` before doing token validation.
 - `src/user_repository.py`: new lookup-by-id method to resolve the impersonated user.
 - `.env.example` (backend and root), Kubernetes manifests, docker-compose: document the new env vars (no default change required since `oauth` remains default).

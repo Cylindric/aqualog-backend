@@ -148,19 +148,11 @@ async def validate_token(
 security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    session: Session = Depends(get_session),
+async def _authenticate_oauth(
+    credentials: HTTPAuthorizationCredentials | None,
+    session: Session,
+    settings: Settings,
 ) -> AuthenticatedUser:
-    """
-    FastAPI dependency for protecting endpoints with OAuth2 authentication.
-
-    Returns the decoded token claims if validation succeeds.
-    Raises HTTPException with 401 status if validation fails.
-    """
-    settings = request.app.state.settings
-
     if not settings.oauth_issuer_url or not settings.oauth_audience:
         logger.error("OAuth2 configuration is missing")
         raise HTTPException(
@@ -193,3 +185,40 @@ async def get_current_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication context unavailable",
         ) from e
+
+
+def _authenticate_impersonated(session: Session, settings: Settings) -> AuthenticatedUser:
+    repository = UserRepository(session)
+    user = (
+        repository.get_by_id(settings.auth_impersonate_user_id)
+        if settings.auth_impersonate_user_id
+        else None
+    )
+    if user is None:
+        logger.error("Configured impersonation user id does not exist")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service is not configured",
+        )
+
+    return AuthenticatedUser(claims={}, user=user)
+
+
+async def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    session: Session = Depends(get_session),
+) -> AuthenticatedUser:
+    """
+    FastAPI dependency for protecting endpoints with configurable authentication.
+
+    In `oauth` mode, validates a bearer token and resolves the local user.
+    In `none` mode, bypasses token validation and resolves the configured
+    impersonation user id instead.
+    """
+    settings = request.app.state.settings
+
+    if settings.auth_mode == "none":
+        return _authenticate_impersonated(session, settings)
+
+    return await _authenticate_oauth(credentials, session, settings)

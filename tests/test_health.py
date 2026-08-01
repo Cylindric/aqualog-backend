@@ -16,8 +16,8 @@ def auth_settings(tmp_path):
     )
 
 
-def test_liveness_returns_machine_readable_healthy_status():
-    app = create_app(Settings(app_env="test"))
+def test_liveness_returns_machine_readable_healthy_status(auth_settings):
+    app = create_app(auth_settings)
 
     with TestClient(app) as client:
         response = client.get("/api/v1/live")
@@ -26,8 +26,8 @@ def test_liveness_returns_machine_readable_healthy_status():
     assert response.json()["data"]["status"] == "healthy"
 
 
-def test_readiness_transitions_from_not_ready_to_ready():
-    app = create_app(Settings(app_env="test"))
+def test_readiness_transitions_from_not_ready_to_ready(auth_settings):
+    app = create_app(auth_settings)
 
     # Simulate startup transition window before dependency initialization finishes.
     app.state.readiness.is_ready = False

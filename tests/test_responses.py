@@ -12,7 +12,13 @@ class InputModel(BaseModel):
 
 
 def test_success_envelope_contains_data_and_request_id():
-    app = create_app(Settings(app_env="test"))
+    app = create_app(
+        Settings(
+            app_env="test",
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
+        )
+    )
 
     with TestClient(app) as client:
         response = client.get("/api/v1/live", headers={"x-request-id": "req-123"})
@@ -25,7 +31,13 @@ def test_success_envelope_contains_data_and_request_id():
 
 
 def test_validation_error_uses_standard_error_envelope():
-    app = create_app(Settings(app_env="test"))
+    app = create_app(
+        Settings(
+            app_env="test",
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
+        )
+    )
     router = APIRouter(prefix="/api/v1")
 
     @router.post("/echo")
@@ -45,7 +57,13 @@ def test_validation_error_uses_standard_error_envelope():
 
 
 def test_internal_error_uses_sanitized_standard_error_envelope():
-    app = create_app(Settings(app_env="test"))
+    app = create_app(
+        Settings(
+            app_env="test",
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
+        )
+    )
     router = APIRouter(prefix="/api/v1")
 
     @router.get("/boom")
