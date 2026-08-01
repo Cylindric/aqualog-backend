@@ -12,7 +12,14 @@ def test_coverage_route_serves_generated_report_index(tmp_path: Path):
     index_file = reports_dir / "index.html"
     index_file.write_text("<html><body>coverage-report</body></html>", encoding="utf-8")
 
-    app = create_app(Settings(app_env="test", coverage_reports_dir=str(reports_dir)))
+    app = create_app(
+        Settings(
+            app_env="test",
+            coverage_reports_dir=str(reports_dir),
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
+        )
+    )
 
     with TestClient(app) as client:
         response = client.get("/coverage")
@@ -25,7 +32,14 @@ def test_coverage_route_returns_not_found_for_missing_files(tmp_path: Path):
     reports_dir = tmp_path / "coverage"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    app = create_app(Settings(app_env="test", coverage_reports_dir=str(reports_dir)))
+    app = create_app(
+        Settings(
+            app_env="test",
+            coverage_reports_dir=str(reports_dir),
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
+        )
+    )
 
     with TestClient(app) as client:
         response = client.get("/coverage/missing.html")
@@ -42,6 +56,8 @@ def test_coverage_route_is_not_exposed_outside_dev_or_test(tmp_path: Path):
         Settings(
             app_env="prod",
             coverage_reports_dir=str(reports_dir),
+            oauth_issuer_url="https://auth.example.com/application/o/aqualog",
+            oauth_audience="test-client-id",
             test_database_url=f"sqlite+pysqlite:///{tmp_path}/coverage-gate.db",
         )
     )

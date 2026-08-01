@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
@@ -10,6 +12,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     test_reports_dir: str = "artifacts/tests"
     coverage_reports_dir: str = "artifacts/coverage"
+    auth_mode: Literal["oauth", "none"] = "oauth"
+    auth_impersonate_user_id: str | None = None
     oauth_issuer_url: str | None = None
     oauth_discovery_url: str | None = None
     oauth_audience: str | None = None
@@ -45,3 +49,23 @@ class Settings(BaseSettings):
 def load_settings() -> Settings:
     """Load settings and fail fast when mandatory values are missing."""
     return Settings()  # type: ignore[call-arg]  # fields resolved from env vars, not visible to mypy
+
+
+def ensure_auth_mode_configured(settings: Settings) -> None:
+    """Fail fast when settings required by the configured auth mode are missing.
+
+    Deliberately not a Settings model_validator: Settings() is also constructed
+    by tooling that has nothing to do with serving requests (e.g. alembic/env.py,
+    which only needs DB config to run migrations) and shouldn't be forced to know
+    about auth. Call this explicitly from the app-serving startup path instead.
+    """
+    if settings.auth_mode == "oauth":
+        if not settings.oauth_issuer_url or not settings.oauth_audience:
+            raise RuntimeError(
+                "AQUALOG_OAUTH_ISSUER_URL and AQUALOG_OAUTH_AUDIENCE are required "
+                "when AQUALOG_AUTH_MODE=oauth"
+            )
+    elif settings.auth_mode == "none" and not settings.auth_impersonate_user_id:
+        raise RuntimeError(
+            "AQUALOG_AUTH_IMPERSONATE_USER_ID is required when AQUALOG_AUTH_MODE=none"
+        )

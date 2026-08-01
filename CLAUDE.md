@@ -10,6 +10,10 @@ This repo uses an **OpenSpec spec-driven workflow** (`openspec/specs`, `openspec
 
 Versioning uses `commitizen` (conventional commits, `cz_conventional_commits`, `tag_format = v$version`, `version_provider = pep621` off `pyproject.toml`) — commit messages should follow Conventional Commits so version bumps/changelogs stay automatable.
 
+## Working practices
+
+Using an isolated git worktree for a task is fine. However, do **not** push worktree branches to `origin` or open pull requests (draft or otherwise) as part of finishing a task — commit locally and leave the branch/worktree in place for the user to review, push, and open a PR themselves. Only push or open a PR if the user explicitly asks for it in that conversation.
+
 ## Commands
 
 All commands run via [Task](https://taskfile.dev) (`Taskfile.yml`) with Poetry underneath:

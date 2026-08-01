@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -31,6 +33,32 @@ def test_get_by_identity_returns_none_when_unknown(tmp_path):
     repo, _ = _build_repo(tmp_path)
 
     result = repo.get_by_identity("https://issuer.example.com", "unknown")
+
+    assert result is None
+
+
+def test_get_by_id_returns_existing_user(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+    created = repo.resolve_or_create("https://issuer.example.com", "sub-get-by-id")
+
+    result = repo.get_by_id(str(created.id))
+
+    assert result is not None
+    assert result.id == created.id
+
+
+def test_get_by_id_returns_none_when_unknown(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+
+    result = repo.get_by_id(str(uuid.uuid4()))
+
+    assert result is None
+
+
+def test_get_by_id_returns_none_for_malformed_id(tmp_path):
+    repo, _ = _build_repo(tmp_path)
+
+    result = repo.get_by_id("not-a-uuid")
 
     assert result is None
 
