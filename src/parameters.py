@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 
 from src.auth import get_current_user
 from src.db import get_session
-from src.models import Parameter
+from src.models import Parameter, Unit
 from src.parameter_repository import (
     DuplicateParameterSlugError,
     ParameterInUseError,
     ParameterRepository,
 )
 from src.responses import success_response
+from src.unit_repository import UnitRepository
 from src.user_service import AuthenticatedUser
 
 
@@ -20,6 +21,7 @@ class ParameterPayload(BaseModel):
     slug: str
     display_name: str
     description: str | None
+    unit: str | None
     created_at: str
     updated_at: str
 
@@ -34,6 +36,30 @@ class ParameterListResponse(BaseModel):
     success: bool
     request_id: str
     data: list[ParameterPayload]
+
+
+class ParameterUnitPayload(BaseModel):
+    slug: str
+    unit: str
+    display_name: str
+    description: str | None
+    is_canonical: bool
+
+
+class ParameterDetailPayload(BaseModel):
+    slug: str
+    display_name: str
+    description: str | None
+    unit: str | None
+    units: list[ParameterUnitPayload]
+    created_at: str
+    updated_at: str
+
+
+class ParameterDetailResponse(BaseModel):
+    success: bool
+    request_id: str
+    data: ParameterDetailPayload
 
 
 class DeleteParameterPayload(BaseModel):
@@ -93,11 +119,34 @@ class UpdateParameterRequest(BaseModel):
         return _validate_display_name(value)
 
 
-def _to_payload(parameter: Parameter) -> dict[str, str | None]:
+def _to_payload(parameter: Parameter, canonical_unit: Unit | None) -> dict[str, str | None]:
     return {
         "slug": parameter.slug,
         "display_name": parameter.display_name,
         "description": parameter.description,
+        "unit": canonical_unit.unit if canonical_unit is not None else None,
+        "created_at": parameter.created_at.isoformat(),
+        "updated_at": parameter.updated_at.isoformat(),
+    }
+
+
+def _to_detail_payload(parameter: Parameter, units: list[tuple[Unit, bool]]) -> dict[str, object]:
+    canonical_unit = next((unit for unit, is_canonical in units if is_canonical), None)
+    return {
+        "slug": parameter.slug,
+        "display_name": parameter.display_name,
+        "description": parameter.description,
+        "unit": canonical_unit.unit if canonical_unit is not None else None,
+        "units": [
+            {
+                "slug": unit.slug,
+                "unit": unit.unit,
+                "display_name": unit.display_name,
+                "description": unit.description,
+                "is_canonical": is_canonical,
+            }
+            for unit, is_canonical in units
+        ],
         "created_at": parameter.created_at.isoformat(),
         "updated_at": parameter.updated_at.isoformat(),
     }
@@ -124,10 +173,12 @@ def build_parameter_router() -> APIRouter:
     ):
         request_id = getattr(request.state, "request_id", "unknown")
         repository = ParameterRepository(session)
+        unit_repository = UnitRepository(session)
         parameters = repository.list_all()
-        return success_response([_to_payload(p) for p in parameters], request_id=request_id)
+        payload = [_to_payload(p, unit_repository.get_canonical_unit(p.id)) for p in parameters]
+        return success_response(payload, request_id=request_id)
 
-    @router.get("/{slug}", response_model=ParameterResponse)
+    @router.get("/{slug}", response_model=ParameterDetailResponse)
     async def get_parameter(
         slug: str,
         request: Request,
@@ -138,7 +189,9 @@ def build_parameter_router() -> APIRouter:
         parameter = repository.get_by_slug(slug.strip().lower())
         if parameter is None:
             raise _not_found_http_error()
-        return success_response(_to_payload(parameter), request_id=request_id)
+        unit_repository = UnitRepository(session)
+        units = unit_repository.list_units_for_parameter_with_canonical(parameter.id)
+        return success_response(_to_detail_payload(parameter, units), request_id=request_id)
 
     @router.post("", response_model=ParameterResponse, status_code=status.HTTP_201_CREATED)
     async def create_parameter(
@@ -159,7 +212,9 @@ def build_parameter_router() -> APIRouter:
             raise _duplicate_slug_http_error() from exc
 
         return success_response(
-            _to_payload(parameter), request_id=request_id, status_code=status.HTTP_201_CREATED
+            _to_payload(parameter, None),
+            request_id=request_id,
+            status_code=status.HTTP_201_CREATED,
         )
 
     @router.patch("/{slug}", response_model=ParameterResponse)
@@ -178,7 +233,9 @@ def build_parameter_router() -> APIRouter:
         if parameter is None:
             raise _not_found_http_error()
 
-        return success_response(_to_payload(parameter), request_id=request_id)
+        unit_repository = UnitRepository(session)
+        canonical_unit = unit_repository.get_canonical_unit(parameter.id)
+        return success_response(_to_payload(parameter, canonical_unit), request_id=request_id)
 
     @router.delete("/{slug}", response_model=DeleteParameterResponse)
     async def delete_parameter(
