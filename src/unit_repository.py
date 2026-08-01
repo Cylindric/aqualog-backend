@@ -84,6 +84,18 @@ class UnitRepository:
             .all()
         )
 
+    def list_units_for_parameter_with_canonical(
+        self, parameter_id: uuid.UUID
+    ) -> list[tuple[Unit, bool]]:
+        rows = (
+            self.session.query(Unit, ParameterUnit.is_canonical)
+            .join(ParameterUnit, ParameterUnit.unit_id == Unit.id)
+            .filter(ParameterUnit.parameter_id == parameter_id)
+            .order_by(Unit.slug.asc())
+            .all()
+        )
+        return [(unit, is_canonical) for unit, is_canonical in rows]
+
     def get_canonical_unit(self, parameter_id: uuid.UUID) -> Unit | None:
         return (
             self.session.query(Unit)

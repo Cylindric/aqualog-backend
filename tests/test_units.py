@@ -38,8 +38,6 @@ def test_unit_endpoints_require_authentication(auth_settings):
     app = create_app(auth_settings)
 
     with TestClient(app) as client:
-        assert client.get("/api/v1/units").status_code == 401
-        assert client.get("/api/v1/units/ppt").status_code == 401
         assert (
             client.post(
                 "/api/v1/units",
@@ -55,6 +53,14 @@ def test_unit_endpoints_require_authentication(auth_settings):
             == 401
         )
         assert client.delete("/api/v1/units/ppt").status_code == 401
+
+
+def test_unit_endpoints_do_not_require_authentication(auth_settings):
+    app = create_app(auth_settings)
+
+    with TestClient(app) as client:
+        assert client.get("/api/v1/units").status_code == 200
+        assert client.get("/api/v1/units/ppt").status_code == 200
 
 
 def test_list_units_returns_seeded_catalog(create_valid_token, auth_settings, mock_jwks):

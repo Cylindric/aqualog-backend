@@ -38,8 +38,6 @@ def test_parameter_endpoints_require_authentication(auth_settings):
     app = create_app(auth_settings)
 
     with TestClient(app) as client:
-        assert client.get("/api/v1/parameters").status_code == 401
-        assert client.get("/api/v1/parameters/salinity").status_code == 401
         assert (
             client.post(
                 "/api/v1/parameters",
@@ -57,6 +55,14 @@ def test_parameter_endpoints_require_authentication(auth_settings):
         assert client.delete("/api/v1/parameters/salinity").status_code == 401
 
 
+def test_parameter_endpoints_do_not_require_authentication(auth_settings):
+    app = create_app(auth_settings)
+
+    with TestClient(app) as client:
+        assert client.get("/api/v1/parameters").status_code == 200
+        assert client.get("/api/v1/parameters/salinity").status_code == 200
+
+
 def test_list_parameters_returns_seeded_catalog(create_valid_token, auth_settings, mock_jwks):
     token = create_valid_token(sub="catalog-lister", aud="test-client-id")
     app = create_app(auth_settings)
@@ -66,8 +72,12 @@ def test_list_parameters_returns_seeded_catalog(create_valid_token, auth_setting
         with TestClient(app) as client:
             response = client.get("/api/v1/parameters", headers=_auth_header(token))
             assert response.status_code == 200
-            slugs = {item["slug"] for item in response.json()["data"]}
+            data = response.json()["data"]
+            slugs = {item["slug"] for item in data}
             assert slugs == SEEDED_SLUGS
+
+            salinity = next(item for item in data if item["slug"] == "salinity")
+            assert salinity["unit"] == "ppt"
 
 
 def test_get_parameter_by_slug(create_valid_token, auth_settings, mock_jwks):
@@ -82,6 +92,14 @@ def test_get_parameter_by_slug(create_valid_token, auth_settings, mock_jwks):
             data = response.json()["data"]
             assert data["slug"] == "salinity"
             assert data["display_name"]
+
+            assert data["unit"] == "ppt"
+
+            units_by_slug = {unit["slug"]: unit for unit in data["units"]}
+            assert set(units_by_slug) == {"ppt", "sg"}
+            assert units_by_slug["ppt"]["unit"] == "ppt"
+            assert units_by_slug["ppt"]["is_canonical"] is True
+            assert units_by_slug["sg"]["is_canonical"] is False
 
             not_found = client.get("/api/v1/parameters/unobtainium", headers=_auth_header(token))
             assert not_found.status_code == 404
@@ -109,10 +127,19 @@ def test_create_parameter_happy_path_and_normalization(
             created = create_response.json()["data"]
             assert created["slug"] == "iron"
             assert created["display_name"] == "Iron"
+            assert created["unit"] is None
+
+            detail_response = client.get("/api/v1/parameters/iron", headers=_auth_header(token))
+            detail_data = detail_response.json()["data"]
+            assert detail_data["unit"] is None
+            assert detail_data["units"] == []
 
             list_response = client.get("/api/v1/parameters", headers=_auth_header(token))
-            slugs = {item["slug"] for item in list_response.json()["data"]}
+            list_data = list_response.json()["data"]
+            slugs = {item["slug"] for item in list_data}
             assert "iron" in slugs
+            iron = next(item for item in list_data if item["slug"] == "iron")
+            assert iron["unit"] is None
 
 
 def test_create_parameter_duplicate_slug_is_rejected(create_valid_token, auth_settings, mock_jwks):
