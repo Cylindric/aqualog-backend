@@ -1,37 +1,15 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, Request
-from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from src.auth import get_current_user
 from src.db import get_session
 from src.models import User
 from src.responses import success_response
+from src.schemas.profile import UpdateProfileRequest, UserProfileResponse
 from src.user_repository import UserRepository
 from src.user_service import AuthenticatedUser
-
-
-class UserProfile(BaseModel):
-    id: str
-    username: str | None
-    display_name: str | None
-    bio: str | None
-    created_at: str
-    updated_at: str
-
-
-class UserProfileResponse(BaseModel):
-    success: bool
-    request_id: str
-    data: UserProfile
-
-
-class UpdateProfileRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    display_name: str | None = Field(default=None, max_length=120)
-    bio: str | None = Field(default=None, max_length=500)
 
 
 def _to_profile_payload(user: User) -> dict[str, str | None]:

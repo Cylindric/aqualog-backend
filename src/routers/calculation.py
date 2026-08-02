@@ -1,25 +1,13 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
 
 from src.auth import get_current_user
 from src.responses import success_response
+from src.schemas.calculation import Dose, DoseResponse
 from src.user_service import AuthenticatedUser
 
 GRAMS_PER_LITER_PER_PPT = 1.1  # grams per liter per ppt of salinity change
-
-
-class Dose(BaseModel):
-    volume: float
-    current: float
-    target: float
-    quantity: float
-    unit: str = "g"
-
-
-class DoseResponse(BaseModel):
-    success: bool
-    request_id: str
-    data: Dose
 
 
 def build_calculation_router() -> APIRouter:

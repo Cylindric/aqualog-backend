@@ -116,8 +116,6 @@ tasks:
     desc: Start the API server locally
     env:
       AQUALOG_DB_HOST: localhost
-      AQUALOG_AUTH_MODE: none
-      AQUALOG_AUTH_IMPERSONATE_USER_ID: b85abf08-8958-48fd-988d-7ff93ab2ae6a
     cmds:
       - cmd: poetry lock
       - cmd: poetry sync
