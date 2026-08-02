@@ -13,18 +13,18 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from starlette.staticfiles import StaticFiles
 
-from src.aquarium_measurements import build_aquarium_measurement_router
-from src.aquarium_parameter_thresholds import build_aquarium_parameter_threshold_router
-from src.aquariums import build_aquarium_router
-from src.calculation import build_calculation_router
 from src.config import Settings, ensure_auth_mode_configured, load_settings
 from src.db import init_database
-from src.health import ReadinessState, build_health_router
 from src.logging_middleware import RequestLoggingMiddleware
-from src.parameters import build_parameter_router
-from src.profile import build_profile_router
 from src.responses import error_response, success_response
-from src.units import build_unit_router
+from src.routers.aquarium_measurements import build_aquarium_measurement_router
+from src.routers.aquarium_parameter_thresholds import build_aquarium_parameter_threshold_router
+from src.routers.aquariums import build_aquarium_router
+from src.routers.calculation import build_calculation_router
+from src.routers.health import ReadinessState, build_health_router
+from src.routers.parameters import build_parameter_router
+from src.routers.profile import build_profile_router
+from src.routers.units import build_unit_router
 
 # Custom JSON formatter
 
