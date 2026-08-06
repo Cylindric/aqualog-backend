@@ -10,6 +10,7 @@ class UserProfile(BaseModel):
     bio: str | None
     created_at: str
     updated_at: str
+    groups: list[str] = Field(default_factory=list)
 
 
 class UserProfileResponse(BaseModel):

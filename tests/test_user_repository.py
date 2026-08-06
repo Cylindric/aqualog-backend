@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from conftest import register_engine_for_cleanup
 from src.db import Base
 from src.user_repository import UserRepository
 
@@ -11,6 +12,7 @@ def _build_repo(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path}/repo-test.db", future=True)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
+    register_engine_for_cleanup(session, engine)
     return UserRepository(session), session
 
 

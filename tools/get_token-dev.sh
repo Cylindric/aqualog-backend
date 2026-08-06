@@ -9,7 +9,10 @@ ISSUER="${AQUALOG_OAUTH_ISSUER_URL}"
 TOKEN_ENDPOINT="${AQUALOG_OAUTH_TOKEN_ENDPOINT}"
 CLIENT_ID="${AQUALOG_OAUTH_CLIENT_ID:-}"
 REDIRECT_URI="${REDIRECT_URI}"
-SCOPE="openid profile email offline_access"
+# "groups" is a custom scope — it only yields a "groups" claim if the
+# Authentik provider has a matching Scope Mapping attached. If yours
+# doesn't yet, Authentik will simply ignore the unrecognized scope.
+SCOPE="openid profile email offline_access aqualog-groups"
 
 if [[ -z "$CLIENT_ID" ]]; then
   echo "Missing required environment variable: CLIENT_ID"
@@ -167,4 +170,5 @@ if [[ "$TEST_RESULT" != "true" ]]; then
   exit 1
 fi
 
+jwt decode -j $JWT | jq '.'
 echo $JWT

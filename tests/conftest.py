@@ -1,15 +1,55 @@
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 from joserfc import jwk, jwt
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.db import reset_database  # noqa: E402
+
+# Several repository-level tests build their own throwaway SQLAlchemy engine
+# directly (bypassing src.db's engine singleton, which reset_db_state below
+# already tears down) and never closed/disposed it, leaking a real sqlite
+# connection per test until garbage collection - surfacing as "ResourceWarning:
+# unclosed database" at session end. register_engine_for_cleanup lets those
+# tests' helper functions opt in to teardown without needing a fixture
+# threaded through every call site.
+_pending_engine_cleanup: list[tuple[Session, Engine]] = []
+
+
+def register_engine_for_cleanup(session: Session, engine: Engine) -> None:
+    _pending_engine_cleanup.append((session, engine))
+
+
+@pytest.fixture(autouse=True)
+def _dispose_registered_test_engines():
+    yield
+    while _pending_engine_cleanup:
+        session, engine = _pending_engine_cleanup.pop()
+        session.close()
+        engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def strip_ambient_aqualog_env(monkeypatch):
+    """Tests construct Settings(...) from explicit kwargs and assume no other
+    AQUALOG_* config is present. But Task's `dotenv: [../.env]` loads the real
+    dev/prod .env into the process environment for every `task` invocation, so
+    e.g. AQUALOG_OAUTH_ISSUER_URL/AQUALOG_OAUTH_AUDIENCE leak in via
+    pydantic-settings and silently make settings "configured" when a test
+    expects them not to be. Strip all ambient AQUALOG_* vars before each test
+    so Settings() only ever sees what the test explicitly provides.
+    """
+    for key in list(os.environ):
+        if key.startswith("AQUALOG_"):
+            monkeypatch.delenv(key, raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -70,6 +110,7 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         exp_offset_seconds: int = 3600,
         issuer: str | None = None,
         preferred_username: str | None = None,
+        groups: list[str] | None = None,
     ) -> str:
         private_key = jwk.import_key(
             mock_rsa_keys["private"],
@@ -86,6 +127,8 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         }
         if preferred_username is not None:
             claims["preferred_username"] = preferred_username
+        if groups is not None:
+            claims["groups"] = groups
 
         return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 
