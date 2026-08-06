@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -10,6 +11,21 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.db import reset_database  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def strip_ambient_aqualog_env(monkeypatch):
+    """Tests construct Settings(...) from explicit kwargs and assume no other
+    AQUALOG_* config is present. But Task's `dotenv: [../.env]` loads the real
+    dev/prod .env into the process environment for every `task` invocation, so
+    e.g. AQUALOG_OAUTH_ISSUER_URL/AQUALOG_OAUTH_AUDIENCE leak in via
+    pydantic-settings and silently make settings "configured" when a test
+    expects them not to be. Strip all ambient AQUALOG_* vars before each test
+    so Settings() only ever sees what the test explicitly provides.
+    """
+    for key in list(os.environ):
+        if key.startswith("AQUALOG_"):
+            monkeypatch.delenv(key, raising=False)
 
 
 @pytest.fixture(autouse=True)
