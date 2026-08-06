@@ -64,6 +64,12 @@
 - bump pytest-html from 4.1.1 to 4.2.0
 - remove redundant main.py
 
+## v0.13.2 (2026-08-06)
+
+### Fix
+
+- bump cryptography in the pip group across 1 directory
+
 ## v0.13.1 (2026-08-02)
 
 ### Refactor
