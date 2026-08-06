@@ -16,3 +16,4 @@ node_modules/
 .env
 aqualog_api.egg-info
 fastapi.log
+artifacts/
