@@ -65,13 +65,6 @@ def configure_logging(level: str) -> logging.Logger:
                 "formatter": "default",
                 "stream": "ext://sys.stdout",
             },
-            "file": {
-                "class": "logging.FileHandler",
-                "level": level.upper(),
-                "formatter": "json",
-                "filename": "fastapi.log",
-                "mode": "a",
-            },
         },
         "loggers": {
             "app": {"handlers": ["console"], "level": level.upper(), "propagate": False},
