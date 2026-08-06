@@ -36,6 +36,26 @@ def test_get_my_profile_returns_current_user_profile(create_valid_token, auth_se
     assert body["data"]["id"]
     assert body["data"]["display_name"] is None
     assert body["data"]["username"] is None
+    assert body["data"]["groups"] == []
+
+
+def test_get_my_profile_includes_groups_from_token(create_valid_token, auth_settings, mock_jwks):
+    token = create_valid_token(
+        sub="profile-user-groups", aud="test-client-id", groups=["admin", "beta-testers"]
+    )
+    app = create_app(auth_settings)
+
+    with patch("src.auth.get_jwks_keys") as mock_get_keys:
+        mock_get_keys.return_value = mock_jwks
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["data"]["groups"] == ["admin", "beta-testers"]
 
 
 def test_get_my_profile_includes_username_from_signup(create_valid_token, auth_settings, mock_jwks):
@@ -58,7 +78,7 @@ def test_get_my_profile_includes_username_from_signup(create_valid_token, auth_s
 
 
 def test_patch_my_profile_updates_allowed_fields(create_valid_token, auth_settings, mock_jwks):
-    token = create_valid_token(sub="profile-user-2", aud="test-client-id")
+    token = create_valid_token(sub="profile-user-2", aud="test-client-id", groups=["admin"])
     app = create_app(auth_settings)
 
     with patch("src.auth.get_jwks_keys") as mock_get_keys:
@@ -75,6 +95,7 @@ def test_patch_my_profile_updates_allowed_fields(create_valid_token, auth_settin
     assert body["success"] is True
     assert body["data"]["display_name"] == "Aqua Tester"
     assert body["data"]["bio"] == "Keeping SPS"
+    assert body["data"]["groups"] == ["admin"]
 
 
 def test_patch_my_profile_rejects_disallowed_fields(create_valid_token, auth_settings, mock_jwks):

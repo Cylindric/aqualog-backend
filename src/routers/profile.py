@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Body, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,7 @@ from src.user_repository import UserRepository
 from src.user_service import AuthenticatedUser
 
 
-def _to_profile_payload(user: User) -> dict[str, str | None]:
+def _to_profile_payload(user: User, claims: dict[str, Any]) -> dict[str, object]:
     return {
         "id": str(user.id),
         "username": user.username,
@@ -20,6 +22,13 @@ def _to_profile_payload(user: User) -> dict[str, str | None]:
         "bio": user.bio,
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
+        # Populated only when the OIDC provider is configured to emit a
+        # "groups" claim (e.g. an Authentik scope mapping); absent claim
+        # yields an empty list rather than a missing key. Group membership
+        # is intended for frontend UX decisions (e.g. showing admin
+        # functions) only — real authorization must still be enforced
+        # server-side against these same claims, not trusted from the client.
+        "groups": claims.get("groups") or [],
     }
 
 
@@ -32,7 +41,9 @@ def build_profile_router() -> APIRouter:
         current_user: AuthenticatedUser = Depends(get_current_user),
     ):
         request_id = getattr(request.state, "request_id", "unknown")
-        return success_response(_to_profile_payload(current_user.user), request_id=request_id)
+        return success_response(
+            _to_profile_payload(current_user.user, current_user.claims), request_id=request_id
+        )
 
     @router.patch("/me", response_model=UserProfileResponse)
     async def update_my_profile(
@@ -50,6 +61,8 @@ def build_profile_router() -> APIRouter:
         else:
             updated_user = current_user.user
 
-        return success_response(_to_profile_payload(updated_user), request_id=request_id)
+        return success_response(
+            _to_profile_payload(updated_user, current_user.claims), request_id=request_id
+        )
 
     return router

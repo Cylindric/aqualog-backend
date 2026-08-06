@@ -70,6 +70,7 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         exp_offset_seconds: int = 3600,
         issuer: str | None = None,
         preferred_username: str | None = None,
+        groups: list[str] | None = None,
     ) -> str:
         private_key = jwk.import_key(
             mock_rsa_keys["private"],
@@ -86,6 +87,8 @@ def create_valid_token(mock_rsa_keys, mock_oidc_config):
         }
         if preferred_username is not None:
             claims["preferred_username"] = preferred_username
+        if groups is not None:
+            claims["groups"] = groups
 
         return jwt.encode({"alg": "RS256", "kid": "test-key-1"}, claims, private_key)
 

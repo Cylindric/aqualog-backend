@@ -34,6 +34,21 @@ Set the following environment variables to enable OAuth2:
 - **AQUALOG_OAUTH_ISSUER_URL**: OIDC issuer URL (default: `https://auth.aqualog.home.cylindric.net/application/o/aqualog/`)
 - **AQUALOG_OAUTH_AUDIENCE**: OAuth2 audience claim (default: `aqualog-api`)
 
+### Group Membership / Roles
+
+Authentik doesn't include group membership in tokens by default. To make it available (e.g. for the frontend to decide whether to show admin functions), add a Scope Mapping in Authentik:
+
+1. Customization → Property Mappings → create a **Scope Mapping** named e.g. `groups`, with expression:
+   ```python
+   return {
+       "groups": [group.name for group in request.user.ak_groups.all()],
+   }
+   ```
+2. Attach it to the "aqualog" OAuth2/OpenID provider alongside the default `openid`/`profile`/`email` mappings.
+3. Request the `groups` scope when obtaining a token (see `tools/get_token-dev.sh` and the frontend's OIDC client config).
+
+Once configured, the `groups` claim flows through unchanged to `GET /api/v1/me` (`data.groups`). Note this is for **frontend UX only** — any endpoint that actually needs to restrict access to admins must check the claim server-side, not rely on the client hiding UI.
+
 ### Getting Tokens for Testing
 
 1. Start Authentik and create an OAuth2 application named "aqualog"
