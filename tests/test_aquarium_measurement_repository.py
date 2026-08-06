@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+from conftest import register_engine_for_cleanup
 from src.aquarium_measurement_repository import (
     AquariumMeasurementRepository,
     DuplicateAquariumMeasurementError,
@@ -29,6 +30,7 @@ def _build_repos(tmp_path):
     event.listen(engine, "connect", _enable_foreign_keys)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
+    register_engine_for_cleanup(session, engine)
     return (
         AquariumRepository(session),
         AquariumMeasurementRepository(session),

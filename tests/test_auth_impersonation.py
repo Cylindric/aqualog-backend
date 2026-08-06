@@ -86,7 +86,10 @@ def test_impersonation_mode_rejects_unknown_user_id_without_creating_one(tmp_pat
     assert body["success"] is False
 
     engine = create_engine(test_database_url, future=True)
-    with engine.connect() as connection:
-        count = connection.execute(text("SELECT COUNT(*) FROM users")).scalar_one()
+    try:
+        with engine.connect() as connection:
+            count = connection.execute(text("SELECT COUNT(*) FROM users")).scalar_one()
+    finally:
+        engine.dispose()
 
     assert count == 0

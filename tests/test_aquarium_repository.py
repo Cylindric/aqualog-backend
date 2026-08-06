@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from conftest import register_engine_for_cleanup
 from src.aquarium_repository import AquariumRepository, DuplicateAquariumNameError
 from src.db import Base
 from src.user_repository import UserRepository
@@ -11,6 +12,7 @@ def _build_repos(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path}/aquarium-repo-test.db", future=True)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
+    register_engine_for_cleanup(session, engine)
     return AquariumRepository(session), UserRepository(session), session
 
 

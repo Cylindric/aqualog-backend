@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from conftest import register_engine_for_cleanup
 from src.aquarium_parameter_threshold_repository import AquariumParameterThresholdRepository
 from src.aquarium_repository import AquariumRepository
 from src.db import Base
@@ -15,6 +16,7 @@ def _build_repos(tmp_path):
     )
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
+    register_engine_for_cleanup(session, engine)
     return (
         AquariumRepository(session),
         AquariumParameterThresholdRepository(session),
